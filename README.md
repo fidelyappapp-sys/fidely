@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fidély
 
-## Getting Started
+Plateforme de cartes de fidélité digitales pour commerçants : QR codes automatiques, cartes Apple Wallet / Google Wallet, scan en caisse, facturation automatique via Stripe (0,10€/scan, minimum 30€/mois).
 
-First, run the development server:
+## Stack
+
+- **Frontend/backend** : Next.js 16 (App Router, TypeScript, Tailwind), Route Handlers en runtime Node.
+- **Base de données** : Supabase (Postgres, Auth, RLS).
+- **Paiement** : Stripe Billing (metered + tiered graduated pricing).
+- **Wallets** : PassKit Web Service complet (Apple) + Google Wallet REST API.
+
+## Démarrage local
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+Renseignez au minimum dans `.env.local` :
+
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+QR_SIGNING_SECRET=  # une chaîne aléatoire longue
+```
+
+Appliquez le schéma sur votre projet Supabase (`supabase/migrations/*.sql`), puis :
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+L'app fonctionne de bout en bout (inscription commerçant, programme de fidélité, QR codes, scan, points) sans Stripe ni Apple/Google Wallet configurés — ces intégrations s'activent dès que leurs variables d'environnement sont renseignées (voir [docs/STRIPE_SETUP.md](docs/STRIPE_SETUP.md) et [docs/WALLET_SETUP.md](docs/WALLET_SETUP.md)).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+app/(marketing)      landing + tarifs
+app/(auth)           inscription / connexion / onboarding commerçant
+app/(dashboard)      tableau de bord commerçant (scanner, clients, programme, facturation, équipe)
+app/(public-card)    inscription client + carte de fidélité publique
+app/api              scan, join, Stripe, wallets, cron
+lib/                 logique métier (Supabase, Stripe, QR, wallets)
+supabase/migrations  schéma Postgres + RLS
+docs/                guides de configuration Stripe / Apple / Google Wallet
+```
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev` — serveur de développement
+- `npm run build` — build de production
+- `npm run stripe:setup` — crée le Meter/Product/Price Stripe (voir [docs/STRIPE_SETUP.md](docs/STRIPE_SETUP.md))

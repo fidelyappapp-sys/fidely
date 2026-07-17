@@ -2,7 +2,15 @@
   "crons": [
     {
       "path": "/api/cron/reconcile",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/review-requests",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/birthdays",
+      "schedule": "0 9 * * *"
     }
   ]
 }

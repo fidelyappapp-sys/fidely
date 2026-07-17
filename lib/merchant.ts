@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { STAFF_SCAN_COOKIE, verifyStaffScanSession } from "@/lib/staffScanAuth";
 import type { MerchantStaffRole } from "@/lib/supabase/types";
 
 export interface MerchantContext {
@@ -56,6 +58,11 @@ export async function requireMerchantContext(): Promise<MerchantContext> {
 
 // Same lookup as requireMerchantContext, but for API Route Handlers: never
 // redirects, just returns null so the caller can respond with 401/403 JSON.
+//
+// Also accepts a staff scan-session cookie (see lib/staffScanAuth.ts) as a
+// fallback when there's no Supabase Auth session — the /staff-scan device
+// flow relies on that path, not on requireMerchantContext(), since it never
+// establishes a real Supabase session.
 export async function getStaffContextOrNull(): Promise<{
   merchantId: string;
   userId: string;
@@ -65,15 +72,22 @@ export async function getStaffContextOrNull(): Promise<{
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (user) {
+    const { data: staffRow } = await supabase
+      .from("merchant_staff")
+      .select("merchant_id")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
 
-  const { data: staffRow } = await supabase
-    .from("merchant_staff")
-    .select("merchant_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+    if (staffRow) return { merchantId: staffRow.merchant_id, userId: user.id };
+  }
 
-  if (!staffRow) return null;
+  const cookieStore = await cookies();
+  const scanToken = cookieStore.get(STAFF_SCAN_COOKIE)?.value;
+  if (!scanToken) return null;
 
-  return { merchantId: staffRow.merchant_id, userId: user.id };
+  const session = await verifyStaffScanSession(scanToken);
+  if (!session) return null;
+
+  return { merchantId: session.merchantId, userId: session.staffUserId };
 }

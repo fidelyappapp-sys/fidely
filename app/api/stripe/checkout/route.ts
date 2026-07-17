@@ -24,6 +24,14 @@ export async function POST() {
     email: user?.email ?? null,
   });
 
+  // Every line item on this price is usage_type: "metered" (see
+  // scripts/stripe-setup.ts) — Stripe never invoices a metered-only
+  // subscription at creation time, only at the end of its first billing
+  // cycle (30 days, per that price's interval). So "card saved now, first
+  // charge 30 days later" falls out of this on its own; no
+  // trial_period_days/billing_cycle_anchor needed. That stops being true
+  // the day a non-metered (flat) line item is added to this Checkout
+  // Session — that combination *does* invoice immediately.
   const session = await stripe().checkout.sessions.create({
     mode: "subscription",
     customer: customerId,

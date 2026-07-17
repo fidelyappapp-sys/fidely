@@ -106,15 +106,19 @@ export async function upsertLoyaltyObject(params: {
 
 // Called after a scan awards points: patches the balance and appends a
 // message, which is what causes Google Wallet to notify the device.
-export async function patchLoyaltyObjectPoints(objectId: string, points: number): Promise<void> {
+export async function patchLoyaltyObjectPoints(
+  objectId: string,
+  points: number,
+  message?: { header: string; body: string }
+): Promise<void> {
   const res = await walletRequest(`/loyaltyObject/${objectId}`, {
     method: "PATCH",
     body: JSON.stringify({
       loyaltyPoints: { label: "Points", balance: { int: points } },
       messages: [
         {
-          header: "Points mis à jour",
-          body: `Vous avez maintenant ${points} points.`,
+          header: message?.header ?? "Points mis à jour",
+          body: message?.body ?? `Vous avez maintenant ${points} points.`,
           id: `points-${points}-${Date.now()}`,
         },
       ],
@@ -123,5 +127,25 @@ export async function patchLoyaltyObjectPoints(objectId: string, points: number)
 
   if (!res.ok) {
     throw new Error(`Failed to patch Google loyaltyObject: ${await res.text()}`);
+  }
+}
+
+// Pushes a standalone message (birthday, review request, manual broadcast)
+// without touching the points balance. Wallet Objects PATCH only updates
+// the fields provided, so omitting loyaltyPoints leaves it untouched.
+export async function pushLoyaltyObjectMessage(
+  objectId: string,
+  header: string,
+  body: string
+): Promise<void> {
+  const res = await walletRequest(`/loyaltyObject/${objectId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      messages: [{ header, body, id: `msg-${Date.now()}` }],
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to push Google loyaltyObject message: ${await res.text()}`);
   }
 }

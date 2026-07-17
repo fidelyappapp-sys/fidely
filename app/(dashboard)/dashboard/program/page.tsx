@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireMerchantContext } from "@/lib/merchant";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ProgramForm } from "@/components/dashboard/ProgramForm";
@@ -25,6 +26,16 @@ export default async function ProgramPage() {
       <div className="mt-8">
         <ProgramForm program={program} />
       </div>
+
+      <div className="mt-12">
+        <Link
+          href="/dashboard/qr-codes"
+          className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+        >
+          Gérer vos QR codes (inscription, employés, offres) →
+        </Link>
+      </div>
     </div>
   );
 }
+

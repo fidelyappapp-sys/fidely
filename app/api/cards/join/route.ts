@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { merchantSlug, fullName, email, phone } = parsed.data;
+  const { merchantSlug, fullName, email, phone, birthDate } = parsed.data;
   const db = createServiceRoleClient();
 
   const { data: merchant } = await db
@@ -54,6 +54,9 @@ export async function POST(request: Request) {
 
   let customerId: string | null = null;
 
+  // Only columns guaranteed to exist since 0001_init.sql — customer
+  // lookup/creation must keep working regardless of whether the
+  // notifications migration (birth_date) has landed on this database yet.
   if (email) {
     const { data: existingCustomer } = await db
       .from("customers")
@@ -81,6 +84,12 @@ export async function POST(request: Request) {
       );
     }
     customerId = newCustomer.id;
+  }
+
+  // Best-effort, applied separately so a missing birth_date column can't
+  // break signup for anyone.
+  if (birthDate && customerId) {
+    await db.from("customers").update({ birth_date: birthDate }).eq("id", customerId);
   }
 
   const { data: existingCard } = await db

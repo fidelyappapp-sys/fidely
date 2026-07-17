@@ -11,9 +11,15 @@ STRIPE_SECRET_KEY=sk_test_... npm run stripe:setup
 Ce script crée :
 - un **Billing Meter** (`event_name: loyalty_scan`) qui agrège les scans par client Stripe,
 - un **Product** "Fidély — Abonnement",
-- un **Price** métré avec paliers graduels : `[0 → 300 scans = 30€ forfait, 300+ = 0,10€/scan]`, ce qui équivaut exactement à `max(30€, 0,10€ × scans)`.
+- un **Price** métré, cycle de **30 jours exacts** (`interval: day, interval_count: 30` — pas `month`, qui varie de 28 à 31 jours), avec paliers graduels : `[0 → 300 scans = 30€ forfait, 300+ = 0,10€/scan]`, ce qui équivaut exactement à `max(30€, 0,10€ × scans)`.
 
 Copiez l'id du price affiché dans `STRIPE_METERED_PRICE_ID`.
+
+### Carte enregistrée à l'inscription, premier prélèvement 30 jours après
+
+C'est le comportement par défaut de Stripe pour un abonnement dont **toutes** les lignes sont `usage_type: "metered"` : aucune facture n'est générée à la création de l'abonnement (contrairement à un price classique `licensed`), la première facture arrive à la fin du premier cycle — donc 30 jours après le passage en caisse (Checkout), sans code supplémentaire (`trial_period_days`, `billing_cycle_anchor`...).
+
+⚠️ Ce comportement disparaît si une ligne non-métrée (un prix `licensed` classique) est ajoutée un jour à la Checkout Session — Stripe facture alors immédiatement la partie fixe. Si ça devient nécessaire, ajouter explicitement `trial_period_days: 30` à `stripe().checkout.sessions.create(...)` dans `app/api/stripe/checkout/route.ts`.
 
 ## 2. Variables d'environnement
 

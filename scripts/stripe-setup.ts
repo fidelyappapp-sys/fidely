@@ -35,10 +35,12 @@ async function main() {
   console.log(`  product: ${product.id}`);
 
   console.log("Creating graduated-tiered metered price...");
+  // interval: day/30 (not "month") — the product spec calls for a bill
+  // every 30 days exactly, not a calendar month (which varies 28-31 days).
   const price = await stripe.prices.create({
     product: product.id,
     currency: "eur",
-    recurring: { usage_type: "metered", meter: meter.id, interval: "month" },
+    recurring: { usage_type: "metered", meter: meter.id, interval: "day", interval_count: 30 },
     billing_scheme: "tiered",
     tiers_mode: "graduated",
     tiers: [

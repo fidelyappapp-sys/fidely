@@ -6,6 +6,29 @@ export type MerchantStaffRole = "owner" | "staff";
 
 export type PushStatus = "skipped" | "sent" | "failed";
 
+export type WeekDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+export interface OpeningHoursEntry {
+  day: WeekDay;
+  closed: boolean;
+  open: string; // "HH:MM"
+  close: string; // "HH:MM"
+}
+
+export type OpeningHours = OpeningHoursEntry[];
+
+export type KitDeliveryMethod = "hand_delivery" | "express_shipping" | "standard_shipping";
+export type KitDeliveryStatus = "pending" | "processing" | "shipped" | "delivered" | "installed";
+
+export interface KitShippingAddress {
+  name: string;
+  line1: string;
+  line2: string;
+  postalCode: string;
+  city: string;
+  country: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -22,6 +45,16 @@ export interface Database {
           stripe_subscription_item_id: string | null;
           subscription_status: SubscriptionStatus;
           onboarding_completed: boolean;
+          google_maps_link: string | null;
+          birthday_notifications_enabled: boolean;
+          phone: string | null;
+          address: string | null;
+          google_review_link: string | null;
+          opening_hours: OpeningHours;
+          kit_delivery_method: KitDeliveryMethod | null;
+          kit_shipping_address: KitShippingAddress | null;
+          kit_delivery_status: KitDeliveryStatus;
+          kit_payment_intent_id: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["merchants"]["Row"]> & {
@@ -32,12 +65,62 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["merchants"]["Row"]>;
         Relationships: [];
       };
+      merchant_menu_items: {
+        Row: {
+          id: string;
+          merchant_id: string;
+          name: string;
+          description: string | null;
+          price_cents: number | null;
+          photo_url: string | null;
+          position: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["merchant_menu_items"]["Row"]> & {
+          merchant_id: string;
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["merchant_menu_items"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "merchant_menu_items_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      merchant_gallery_photos: {
+        Row: {
+          id: string;
+          merchant_id: string;
+          url: string;
+          position: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["merchant_gallery_photos"]["Row"]> & {
+          merchant_id: string;
+          url: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["merchant_gallery_photos"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "merchant_gallery_photos_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       merchant_staff: {
         Row: {
           id: string;
           merchant_id: string;
           auth_user_id: string;
           role: MerchantStaffRole;
+          scan_token: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["merchant_staff"]["Row"]> & {
@@ -48,6 +131,31 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "merchant_staff_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      merchant_qr_codes: {
+        Row: {
+          id: string;
+          merchant_id: string;
+          label: string;
+          target_url: string;
+          position: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["merchant_qr_codes"]["Row"]> & {
+          merchant_id: string;
+          label: string;
+          target_url: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["merchant_qr_codes"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "merchant_qr_codes_merchant_id_fkey";
             columns: ["merchant_id"];
             isOneToOne: false;
             referencedRelation: "merchants";
@@ -88,6 +196,7 @@ export interface Database {
           email: string | null;
           phone: string | null;
           full_name: string | null;
+          birth_date: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["customers"]["Row"]>;
@@ -106,6 +215,8 @@ export interface Database {
           pass_auth_token: string;
           apple_pass_updated_at: string;
           google_object_id: string | null;
+          last_push_message: string | null;
+          last_birthday_year: number | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["loyalty_cards"]["Row"]> & {
@@ -219,6 +330,98 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["rate_limit_events"]["Row"]>;
         Relationships: [];
       };
+      push_notifications: {
+        Row: {
+          id: string;
+          merchant_id: string;
+          type: "manual" | "birthday";
+          title: string | null;
+          body: string;
+          recipient_count: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["push_notifications"]["Row"]> & {
+          merchant_id: string;
+          type: "manual" | "birthday";
+          body: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["push_notifications"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "push_notifications_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      review_requests: {
+        Row: {
+          id: string;
+          loyalty_card_id: string;
+          merchant_id: string;
+          due_at: string;
+          status: "pending" | "sent" | "skipped" | "failed";
+          sent_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["review_requests"]["Row"]> & {
+          loyalty_card_id: string;
+          merchant_id: string;
+          due_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["review_requests"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "review_requests_loyalty_card_id_fkey";
+            columns: ["loyalty_card_id"];
+            isOneToOne: false;
+            referencedRelation: "loyalty_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "review_requests_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      reward_claims: {
+        Row: {
+          id: string;
+          loyalty_card_id: string;
+          merchant_id: string;
+          points_at_claim: number;
+          reward_description: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["reward_claims"]["Row"]> & {
+          loyalty_card_id: string;
+          merchant_id: string;
+          points_at_claim: number;
+          reward_description: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["reward_claims"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "reward_claims_loyalty_card_id_fkey";
+            columns: ["loyalty_card_id"];
+            isOneToOne: false;
+            referencedRelation: "loyalty_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reward_claims_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -232,11 +435,25 @@ export interface Database {
           stripe_customer_id: string | null;
           pass_serial_number: string;
           google_object_id: string | null;
+          business_name: string;
+          reward_threshold: number;
+          reward_description: string;
+          reward_claimed: boolean;
         }[];
       };
       prune_rate_limit_events: {
         Args: Record<string, never>;
         Returns: undefined;
+      };
+      find_birthday_cards: {
+        Args: Record<string, never>;
+        Returns: {
+          loyalty_card_id: string;
+          merchant_id: string;
+          pass_serial_number: string;
+          google_object_id: string | null;
+          business_name: string;
+        }[];
       };
     };
   };

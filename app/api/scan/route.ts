@@ -39,6 +39,9 @@ export async function POST(request: Request) {
 
   const db = createServiceRoleClient();
 
+  // Only columns guaranteed to exist since 0001_init.sql — the
+  // notifications migration (google_maps_link etc.) hasn't landed on this
+  // database yet, and this base lookup must keep working regardless.
   const { data: card } = await db
     .from("loyalty_cards")
     .select("id, merchant_id, customers(full_name)")
@@ -70,15 +73,47 @@ export async function POST(request: Request) {
     );
   }
 
-  const [stripeOutcome, applePushStatus, googlePushStatus] = await Promise.allSettled([
+  // business_name/reward_threshold only come back once the notifications
+  // migration has been applied (award_scan_points was extended to return
+  // them). Until then this RPC result simply won't have those keys — fall
+  // back to the original generic points-only push rather than send a
+  // message with "undefined" in it.
+  const hasRichContext =
+    typeof result.business_name === "string" && typeof result.reward_threshold === "number";
+  // reward_claimed/reward_description only exist once the reward-claims
+  // migration has landed on top of that (award_scan_points auto-resets
+  // points to 0 and reports it). Same tiered fallback as above.
+  const rewardClaimed = hasRichContext && result.reward_claimed === true;
+  const remaining = hasRichContext
+    ? Math.max(result.reward_threshold - result.points_balance_after, 0)
+    : 0;
+  const notificationBody = hasRichContext
+    ? rewardClaimed
+      ? `Bravo ! Vous avez débloqué : ${result.reward_description}. Vos points repartent à 0 chez ${result.business_name}.`
+      : remaining > 0
+        ? `Vous avez ${result.points_balance_after} points chez ${result.business_name}. Plus que ${remaining} points pour votre récompense !`
+        : `Vous avez ${result.points_balance_after} points chez ${result.business_name}. Votre récompense est disponible !`
+    : null;
+
+  const [stripeOutcome, , applePushStatus, googlePushStatus] = await Promise.allSettled([
     isStripeConfigured && result.stripe_customer_id
       ? reportScanUsage({
           stripeCustomerId: result.stripe_customer_id,
           identifier: result.scan_event_id,
         })
       : Promise.resolve(null),
+    // No-ops harmlessly (column doesn't exist yet) until the notifications
+    // migration lands.
+    notificationBody
+      ? db.from("loyalty_cards").update({ last_push_message: notificationBody }).eq("id", card.id)
+      : Promise.resolve(null),
     notifyAppleWalletUpdate(result.pass_serial_number),
-    notifyGoogleWalletUpdate(result.google_object_id, result.points_balance_after),
+    notificationBody
+      ? notifyGoogleWalletUpdate(result.google_object_id, result.points_balance_after, {
+          header: "Nouveaux points",
+          body: notificationBody,
+        })
+      : notifyGoogleWalletUpdate(result.google_object_id, result.points_balance_after),
   ]);
 
   await db
@@ -93,11 +128,31 @@ export async function POST(request: Request) {
     })
     .eq("id", result.scan_event_id);
 
+  // Best-effort: both the google_maps_link column and the review_requests
+  // table only exist once the notifications migration has been applied.
+  // Queried separately (rather than joined into the main lookup above) so
+  // a missing column/table can't take down the scan itself.
+  const { data: merchantRow } = await db
+    .from("merchants")
+    .select("google_maps_link")
+    .eq("id", card.merchant_id)
+    .maybeSingle();
+
+  if (merchantRow?.google_maps_link) {
+    await db.from("review_requests").insert({
+      loyalty_card_id: card.id,
+      merchant_id: card.merchant_id,
+      due_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    });
+  }
+
   const customer = card.customers as unknown as { full_name: string | null } | null;
 
   return NextResponse.json({
     customerName: customer?.full_name ?? null,
     pointsAwarded: result.points_awarded,
     pointsBalance: result.points_balance_after,
+    rewardClaimed,
+    rewardDescription: rewardClaimed ? result.reward_description : null,
   });
 }

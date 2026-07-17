@@ -20,3 +20,14 @@ export async function qrCodeDataUrl(publicId: string): Promise<string> {
     width: 320,
   });
 }
+
+// Plain (unsigned) QR for static, merchant-level links — the join page and
+// the scanner shortcut aren't per-customer secrets, so they don't need the
+// HMAC that customer scan-in QRs use.
+export async function urlQrDataUrl(url: string): Promise<string> {
+  return QRCode.toDataURL(url, {
+    errorCorrectionLevel: "M",
+    margin: 1,
+    width: 320,
+  });
+}

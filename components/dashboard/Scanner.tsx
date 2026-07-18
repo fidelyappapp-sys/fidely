@@ -15,6 +15,33 @@ type ScanResult =
     }
   | { status: "error"; message: string };
 
+// Two-tone confirmation beep via Web Audio — no audio asset to load/host.
+function playBeep() {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new Ctx();
+    const now = ctx.currentTime;
+
+    [880, 1320].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const start = now + i * 0.09;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.2, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.09);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.1);
+    });
+
+    setTimeout(() => ctx.close(), 400);
+  } catch {
+    // Web Audio unsupported — fail silently, the visual flash still confirms the scan.
+  }
+}
+
 export function Scanner() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
@@ -22,6 +49,7 @@ export function Scanner() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [adjusting, setAdjusting] = useState(false);
+  const [flash, setFlash] = useState(false);
 
   const handleDecoded = useCallback(async (payload: string) => {
     busyRef.current = true;
@@ -49,6 +77,10 @@ export function Scanner() {
           rewardClaimed: Boolean(data.rewardClaimed),
           rewardDescription: data.rewardDescription ?? null,
         });
+        playBeep();
+        if (navigator.vibrate) navigator.vibrate(120);
+        setFlash(true);
+        setTimeout(() => setFlash(false), 500);
       }
     } catch {
       setResult({ status: "error", message: "Erreur réseau, réessayez." });
@@ -117,8 +149,19 @@ export function Scanner() {
 
   return (
     <div className="max-w-md">
-      <div className="overflow-hidden rounded-2xl bg-black">
+      <div className="relative overflow-hidden rounded-2xl bg-black">
         <video ref={videoRef} className="aspect-square w-full object-cover" muted playsInline />
+
+        {!cameraError && (
+          <div
+            aria-hidden
+            className="animate-scan-laser pointer-events-none absolute inset-x-0 h-0.5 bg-red-500 shadow-[0_0_8px_2px_rgba(239,68,68,0.8)]"
+          />
+        )}
+
+        {flash && (
+          <div aria-hidden className="animate-scan-flash pointer-events-none absolute inset-0 bg-green-400" />
+        )}
       </div>
 
       {cameraError && (

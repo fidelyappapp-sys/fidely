@@ -123,6 +123,43 @@
   animation: card-sheen 5s ease-in-out infinite;
 }
 
+@keyframes scan-laser {
+  0% {
+    top: 4%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 94%;
+    opacity: 0;
+  }
+}
+
+.animate-scan-laser {
+  animation: scan-laser 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+
+@keyframes scan-flash {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-scan-flash {
+  animation: scan-flash 0.5s ease-out;
+}
+
 .reveal {
   opacity: 0;
   transform: translateY(18px);
@@ -142,7 +179,9 @@
   .animate-pulse-ring,
   .animate-hero-rise,
   .animate-marquee,
-  .animate-card-sheen {
+  .animate-card-sheen,
+  .animate-scan-laser,
+  .animate-scan-flash {
     animation: none;
   }
   .reveal {

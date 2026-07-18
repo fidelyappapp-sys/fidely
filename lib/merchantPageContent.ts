@@ -17,8 +17,8 @@ const EMPTY_EXTRAS: MerchantPageExtras = {
   openingHours: [],
 };
 
-// Columns added by migrations 0003_notifications.sql (google_maps_link) and
-// 0004_merchant_page.sql (everything else here). Queried separately from the
+// Columns added by migrations 0004_notifications.sql (google_maps_link) and
+// 0005_merchant_page.sql (everything else here). Queried separately from the
 // baseline merchant fields (business_name, brand_color, ...) so that a
 // deploy that ships this code before those migrations have actually been
 // run degrades to "no opening hours / phone / etc." instead of taking down

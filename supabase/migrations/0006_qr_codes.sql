@@ -5,6 +5,12 @@
 --
 -- Written to be safely re-runnable, same convention as prior migrations.
 
+-- gen_random_bytes() lives in pgcrypto, which Supabase may install into a
+-- schema (typically `extensions`) that isn't on this session's default
+-- search_path — widen it rather than guess/hardcode the exact schema name.
+create extension if not exists pgcrypto;
+set search_path = public, extensions;
+
 -- Same technique as loyalty_cards.pass_serial_number in 0001_init.sql: a
 -- volatile default so every existing row is backfilled with its own random
 -- token, not just new ones.

@@ -9,7 +9,7 @@ export interface KitDeliveryInfo {
 
 const NOT_CHOSEN_YET: KitDeliveryInfo = { method: null, status: "pending", address: null };
 
-// kit_delivery_* columns only exist once migration 0007_kit_delivery.sql
+// kit_delivery_* columns only exist once migration 0008_kit_delivery.sql
 // has been applied — "not chosen yet" rather than a crash until then.
 export async function getKitDeliveryInfo(
   supabase: SupabaseClient<Database>,

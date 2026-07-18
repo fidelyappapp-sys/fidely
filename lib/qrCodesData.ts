@@ -7,7 +7,7 @@ export interface CustomQrCodeRow {
   targetUrl: string;
 }
 
-// merchant_qr_codes only exists once migration 0005_qr_codes.sql has been
+// merchant_qr_codes only exists once migration 0006_qr_codes.sql has been
 // applied — empty list rather than a crash until then.
 export async function getMerchantQrCodes(
   supabase: SupabaseClient<Database>,

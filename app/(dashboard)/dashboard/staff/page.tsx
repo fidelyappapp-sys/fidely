@@ -10,7 +10,7 @@ export default async function StaffPage() {
   const supabase = await createServerSupabaseClient();
 
   // The employee-name / active / scan_token columns only exist once
-  // migration 0009_team_members.sql has been applied — fall back to the
+  // migration 0010_team_members.sql has been applied — fall back to the
   // guaranteed-since-0001 columns so the owner's own row (and thus this
   // page) never just disappears in the meantime.
   let staffRows: {

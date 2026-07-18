@@ -6,6 +6,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { broadcastNotificationSchema } from "@/lib/validation/schemas";
 import { notifyAppleWalletUpdate } from "@/lib/wallet/apple/notify";
 import { notifyGoogleWalletMessage } from "@/lib/wallet/google/notify";
+import { sendWebPushToMerchant } from "@/lib/webPush";
 
 export interface NotificationActionState {
   error?: string;
@@ -43,14 +44,18 @@ export async function sendBroadcastNotification(
     .update({ last_push_message: parsed.data.body })
     .eq("merchant_id", merchant.merchantId);
 
-  await Promise.allSettled(
-    cards.map((card) =>
+  await Promise.allSettled([
+    ...cards.map((card) =>
       Promise.allSettled([
         notifyAppleWalletUpdate(card.pass_serial_number),
         notifyGoogleWalletMessage(card.google_object_id, parsed.data.title, parsed.data.body),
       ])
-    )
-  );
+    ),
+    sendWebPushToMerchant(db, merchant.merchantId, {
+      title: parsed.data.title,
+      body: parsed.data.body,
+    }),
+  ]);
 
   await db.from("push_notifications").insert({
     merchant_id: merchant.merchantId,

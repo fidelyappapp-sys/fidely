@@ -434,6 +434,32 @@ export interface Database {
           },
         ];
       };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          loyalty_card_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["push_subscriptions"]["Row"]> & {
+          loyalty_card_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["push_subscriptions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_loyalty_card_id_fkey";
+            columns: ["loyalty_card_id"];
+            isOneToOne: false;
+            referencedRelation: "loyalty_cards";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendCardMessage } from "@/lib/notifications/send";
+import { sendWebPushToCard } from "@/lib/webPush";
 
 export const runtime = "nodejs";
 
@@ -25,13 +26,16 @@ export async function GET(request: Request) {
     const body = `Joyeux anniversaire ! Venez chercher votre cadeau chez ${card.business_name} 🎂`;
 
     try {
-      await sendCardMessage({
-        loyaltyCardId: card.loyalty_card_id,
-        passSerialNumber: card.pass_serial_number,
-        googleObjectId: card.google_object_id,
-        header: "Joyeux anniversaire !",
-        body,
-      });
+      await Promise.allSettled([
+        sendCardMessage({
+          loyaltyCardId: card.loyalty_card_id,
+          passSerialNumber: card.pass_serial_number,
+          googleObjectId: card.google_object_id,
+          header: "Joyeux anniversaire !",
+          body,
+        }),
+        sendWebPushToCard(db, card.loyalty_card_id, { title: "Joyeux anniversaire !", body }),
+      ]);
       await db
         .from("loyalty_cards")
         .update({ last_birthday_year: currentYear })

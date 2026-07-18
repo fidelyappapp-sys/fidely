@@ -8,6 +8,8 @@ import { reportScanUsage } from "@/lib/stripe/usage";
 import { notifyAppleWalletUpdate } from "@/lib/wallet/apple/notify";
 import { notifyGoogleWalletUpdate } from "@/lib/wallet/google/notify";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { sendWebPushToCard } from "@/lib/webPush";
+import { appBaseUrl } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -114,6 +116,11 @@ export async function POST(request: Request) {
           body: notificationBody,
         })
       : notifyGoogleWalletUpdate(result.google_object_id, result.points_balance_after),
+    sendWebPushToCard(db, card.id, {
+      title: rewardClaimed ? "Récompense débloquée !" : "Nouveaux points",
+      body: notificationBody ?? `Vous avez ${result.points_balance_after} points.`,
+      url: `${appBaseUrl()}/c/${verified.publicId}`,
+    }),
   ]);
 
   await db

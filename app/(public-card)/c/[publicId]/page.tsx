@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { qrCodeDataUrl } from "@/lib/qr/generate";
-import { isAppleWalletConfigured, isGoogleWalletConfigured } from "@/lib/env";
+import { isAppleWalletConfigured, isGoogleWalletConfigured, isWebPushConfigured } from "@/lib/env";
 import type { StampStyle } from "@/lib/supabase/types";
 import { CardPoints } from "@/components/public-card/CardPoints";
 import { WalletButtons } from "@/components/public-card/WalletButtons";
+import { PushOptIn } from "@/components/public-card/PushOptIn";
 import { OpenBadge } from "@/components/public-card/OpenBadge";
 import { OpeningHoursList } from "@/components/public-card/OpeningHoursList";
 import { MenuSection } from "@/components/public-card/MenuSection";
@@ -131,6 +132,10 @@ export default async function PublicCardPage({
             googleConfigured={isGoogleWalletConfigured}
           />
         </div>
+
+        {isWebPushConfigured && (
+          <PushOptIn publicId={publicId} vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!} />
+        )}
 
         <div className="mt-6">
           <ActionButtons

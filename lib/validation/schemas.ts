@@ -99,6 +99,17 @@ export const employeeSchema = z.object({
   lastName: z.string().trim().min(1).max(60),
 });
 
+export const pushSubscribeSchema = z.object({
+  publicId: z.string().trim().uuid(),
+  subscription: z.object({
+    endpoint: z.string().trim().url(),
+    keys: z.object({
+      p256dh: z.string().trim().min(1),
+      auth: z.string().trim().min(1),
+    }),
+  }),
+});
+
 export const qrCodeSchema = z.object({
   label: z.string().trim().min(2).max(80),
   targetUrl: z.string().trim().url("Lien invalide").max(500),

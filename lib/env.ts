@@ -18,6 +18,10 @@ export const isStripeConfigured = Boolean(
   process.env.STRIPE_SECRET_KEY && process.env.STRIPE_METERED_PRICE_ID
 );
 
+export const isWebPushConfigured = Boolean(
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
+);
+
 export function appBaseUrl() {
   return process.env.APP_BASE_URL ?? "http://localhost:3000";
 }

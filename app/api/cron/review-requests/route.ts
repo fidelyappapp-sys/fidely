@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendCardMessage } from "@/lib/notifications/send";
+import { sendWebPushToCard } from "@/lib/webPush";
 
 export const runtime = "nodejs";
 
@@ -43,13 +44,20 @@ export async function GET(request: Request) {
     const body = `Vous avez apprécié votre visite chez ${merchant.business_name} ? Laissez-nous un avis Google ici : ${merchant.google_maps_link}`;
 
     try {
-      await sendCardMessage({
-        loyaltyCardId: row.loyalty_card_id,
-        passSerialNumber: card.pass_serial_number,
-        googleObjectId: card.google_object_id,
-        header: "Votre avis compte",
-        body,
-      });
+      await Promise.allSettled([
+        sendCardMessage({
+          loyaltyCardId: row.loyalty_card_id,
+          passSerialNumber: card.pass_serial_number,
+          googleObjectId: card.google_object_id,
+          header: "Votre avis compte",
+          body,
+        }),
+        sendWebPushToCard(db, row.loyalty_card_id, {
+          title: "Votre avis compte",
+          body,
+          url: merchant.google_maps_link,
+        }),
+      ]);
       await db
         .from("review_requests")
         .update({ status: "sent", sent_at: new Date().toISOString() })

@@ -3,62 +3,42 @@
 import { revalidatePath } from "next/cache";
 import { requireMerchantContext } from "@/lib/merchant";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { appBaseUrl } from "@/lib/env";
+import { employeeSchema } from "@/lib/validation/schemas";
 
 export interface StaffActionState {
   error?: string;
   success?: boolean;
 }
 
-export async function inviteStaffMember(
+// Employees don't get a Supabase Auth account: they're identified by name
+// and a personal scan_token (see lib/staffScanAuth.ts) that lets them pick
+// up a shared counter device via their own QR — no login required.
+export async function addEmployee(
   _prevState: StaffActionState,
   formData: FormData
 ): Promise<StaffActionState> {
   const merchant = await requireMerchantContext();
   if (merchant.role !== "owner") {
-    return { error: "Seul le propriétaire peut inviter des membres." };
+    return { error: "Seul le propriétaire peut ajouter un employé." };
   }
 
-  const email = String(formData.get("email") ?? "").trim();
-  if (!email) return { error: "Adresse email requise." };
+  const parsed = employeeSchema.safeParse({
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
 
   const db = createServiceRoleClient();
-
-  const { data: invited, error: inviteError } = await db.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${appBaseUrl()}/dashboard`,
-  });
-
-  if (inviteError || !invited.user) {
-    return { error: inviteError?.message ?? "Impossible d'inviter ce membre." };
-  }
-
-  const { error: staffError } = await db.from("merchant_staff").insert({
+  const { error } = await db.from("merchant_staff").insert({
     merchant_id: merchant.merchantId,
-    auth_user_id: invited.user.id,
     role: "staff",
+    first_name: parsed.data.firstName,
+    last_name: parsed.data.lastName,
+    active: true,
+    scan_token: crypto.randomUUID().replace(/-/g, ""),
   });
-
-  if (staffError) {
-    return { error: staffError.message };
-  }
-
-  revalidatePath("/dashboard/staff");
-  return { success: true };
-}
-
-export async function removeStaffMember(staffId: string): Promise<StaffActionState> {
-  const merchant = await requireMerchantContext();
-  if (merchant.role !== "owner") {
-    return { error: "Seul le propriétaire peut retirer des membres." };
-  }
-
-  const db = createServiceRoleClient();
-  const { error } = await db
-    .from("merchant_staff")
-    .delete()
-    .eq("id", staffId)
-    .eq("merchant_id", merchant.merchantId)
-    .eq("role", "staff");
 
   if (error) return { error: error.message };
 
@@ -66,9 +46,20 @@ export async function removeStaffMember(staffId: string): Promise<StaffActionSta
   return { success: true };
 }
 
-// Form-action-friendly wrapper: <form action={...}> requires a function
-// returning void/Promise<void>, but removeStaffMember returns state for
-// potential future inline error display — this discards it.
-export async function removeStaffMemberFormAction(staffId: string): Promise<void> {
-  await removeStaffMember(staffId);
+// One click "Supprimer": deactivates immediately (clears scan_token, so any
+// printed QR stops working right away) rather than a hard delete, so the
+// employee still shows up in the inactive list below.
+export async function deactivateEmployee(staffId: string): Promise<void> {
+  const merchant = await requireMerchantContext();
+  if (merchant.role !== "owner") return;
+
+  const db = createServiceRoleClient();
+  await db
+    .from("merchant_staff")
+    .update({ active: false, scan_token: null })
+    .eq("id", staffId)
+    .eq("merchant_id", merchant.merchantId)
+    .eq("role", "staff");
+
+  revalidatePath("/dashboard/staff");
 }

@@ -4,6 +4,15 @@ export type SubscriptionStatus = string;
 
 export type MerchantStaffRole = "owner" | "staff";
 
+export type StampStyle =
+  | "star"
+  | "square"
+  | "triangle"
+  | "heart"
+  | "butterfly"
+  | "circle"
+  | "diamond";
+
 export type PushStatus = "skipped" | "sent" | "failed";
 
 export type WeekDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -17,7 +26,7 @@ export interface OpeningHoursEntry {
 
 export type OpeningHours = OpeningHoursEntry[];
 
-export type KitDeliveryMethod = "hand_delivery" | "express_shipping" | "standard_shipping";
+export type KitDeliveryMethod = "hand_delivery" | "postal_shipping";
 export type KitDeliveryStatus = "pending" | "processing" | "shipped" | "delivered" | "installed";
 
 export interface KitShippingAddress {
@@ -55,6 +64,7 @@ export interface Database {
           kit_shipping_address: KitShippingAddress | null;
           kit_delivery_status: KitDeliveryStatus;
           kit_payment_intent_id: string | null;
+          stamp_style: StampStyle;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["merchants"]["Row"]> & {
@@ -118,14 +128,16 @@ export interface Database {
         Row: {
           id: string;
           merchant_id: string;
-          auth_user_id: string;
+          auth_user_id: string | null;
           role: MerchantStaffRole;
           scan_token: string | null;
+          first_name: string | null;
+          last_name: string | null;
+          active: boolean;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["merchant_staff"]["Row"]> & {
           merchant_id: string;
-          auth_user_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["merchant_staff"]["Row"]>;
         Relationships: [
@@ -426,7 +438,7 @@ export interface Database {
     Views: Record<string, never>;
     Functions: {
       award_scan_points: {
-        Args: { p_loyalty_card_id: string; p_staff_user_id: string };
+        Args: { p_loyalty_card_id: string; p_staff_user_id: string | null };
         Returns: {
           scan_event_id: string;
           points_awarded: number;

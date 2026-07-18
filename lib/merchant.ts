@@ -65,7 +65,7 @@ export async function requireMerchantContext(): Promise<MerchantContext> {
 // establishes a real Supabase session.
 export async function getStaffContextOrNull(): Promise<{
   merchantId: string;
-  userId: string;
+  userId: string | null;
 } | null> {
   const supabase = await createServerSupabaseClient();
   const {
@@ -89,5 +89,5 @@ export async function getStaffContextOrNull(): Promise<{
   const session = await verifyStaffScanSession(scanToken);
   if (!session) return null;
 
-  return { merchantId: session.merchantId, userId: session.staffUserId };
+  return { merchantId: session.merchantId, userId: session.authUserId };
 }

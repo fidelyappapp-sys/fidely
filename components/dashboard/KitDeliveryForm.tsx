@@ -9,22 +9,15 @@ const initialState: KitDeliveryActionState = {};
 const OPTIONS: { value: KitDeliveryMethod; title: string; description: string; price: string }[] = [
   {
     value: "hand_delivery",
-    title: "Je suis présent avec le commerçant",
-    description:
-      "Livraison en main propre gratuite — installation du présentoir et impression du QR code sur place.",
+    title: "Gratuit - Je vous installe tout sur place",
+    description: "Installation en main propre par le gérant de Fidély, directement dans votre commerce.",
     price: "Gratuit",
   },
   {
-    value: "express_shipping",
-    title: "Je ne suis pas présent",
+    value: "postal_shipping",
+    title: "Livraison à votre adresse - 3,99€",
     description: "Envoi postal, prélevé immédiatement sur la carte enregistrée.",
     price: "3,99€",
-  },
-  {
-    value: "standard_shipping",
-    title: "Envoi postal standard",
-    description: "Livré par courrier sans frais supplémentaires, dans un délai plus long.",
-    price: "Gratuit",
   },
 ];
 
@@ -118,7 +111,7 @@ export function KitDeliveryForm() {
       >
         {pending
           ? "Envoi..."
-          : method === "express_shipping"
+          : method === "postal_shipping"
             ? "Confirmer et payer 3,99€"
             : "Confirmer"}
       </button>

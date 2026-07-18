@@ -3,15 +3,17 @@
 --
 -- Written to be safely re-runnable, same convention as prior migrations.
 
+-- Exactly two options: free hand delivery (owner installs it in person) or
+-- paid postal shipping (3,99€, charged immediately on choice).
 alter table merchants add column if not exists kit_delivery_method text
-  check (kit_delivery_method in ('hand_delivery', 'express_shipping', 'standard_shipping'));
+  check (kit_delivery_method in ('hand_delivery', 'postal_shipping'));
 
--- {name, line1, line2, postalCode, city, country} — only meaningful for the
--- two shipping methods; null for hand_delivery.
+-- {name, line1, line2, postalCode, city, country} — only meaningful for
+-- postal_shipping; null for hand_delivery.
 alter table merchants add column if not exists kit_shipping_address jsonb;
 
 alter table merchants add column if not exists kit_delivery_status text not null default 'pending'
   check (kit_delivery_status in ('pending', 'processing', 'shipped', 'delivered', 'installed'));
 
--- Set only for express_shipping, once the one-time 3,99€ charge succeeds.
+-- Set only for postal_shipping, once the one-time 3,99€ charge succeeds.
 alter table merchants add column if not exists kit_payment_intent_id text;

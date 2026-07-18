@@ -4,9 +4,8 @@ import { getKitDeliveryInfo } from "@/lib/kitDeliveryData";
 import { KitDeliveryForm } from "@/components/dashboard/KitDeliveryForm";
 
 const METHOD_LABELS: Record<string, string> = {
-  hand_delivery: "Livraison en main propre",
-  express_shipping: "Envoi postal express (3,99€)",
-  standard_shipping: "Envoi postal standard",
+  hand_delivery: "Gratuit - Installation en main propre",
+  postal_shipping: "Livraison à votre adresse (3,99€)",
 };
 
 const STATUS_LABELS: Record<string, string> = {

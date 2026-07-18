@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireMerchantContext } from "@/lib/merchant";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { galleryPhotoSchema, menuItemSchema } from "@/lib/validation/schemas";
+import { menuItemSchema } from "@/lib/validation/schemas";
+import { uploadMerchantPhoto } from "@/lib/storage";
 
 export interface PageContentActionState {
   error?: string;
@@ -20,11 +21,20 @@ export async function addMenuItem(
     name: formData.get("name"),
     description: formData.get("description"),
     priceCents: formData.get("priceCents") || undefined,
-    photoUrl: formData.get("photoUrl"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
+
+  let photoUrl: string | null = null;
+  const photo = formData.get("photo");
+  if (photo instanceof File && photo.size > 0) {
+    try {
+      photoUrl = await uploadMerchantPhoto(merchant.merchantId, photo);
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Échec de l'envoi de la photo." };
+    }
   }
 
   const supabase = await createServerSupabaseClient();
@@ -33,7 +43,7 @@ export async function addMenuItem(
     name: parsed.data.name,
     description: parsed.data.description || null,
     price_cents: parsed.data.priceCents ?? null,
-    photo_url: parsed.data.photoUrl || null,
+    photo_url: photoUrl,
   });
 
   if (error) return { error: error.message };
@@ -71,15 +81,22 @@ export async function addGalleryPhoto(
 ): Promise<PageContentActionState> {
   const merchant = await requireMerchantContext();
 
-  const parsed = galleryPhotoSchema.safeParse({ url: formData.get("url") });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Lien invalide." };
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) {
+    return { error: "Choisissez une photo." };
+  }
+
+  let url: string;
+  try {
+    url = await uploadMerchantPhoto(merchant.merchantId, photo);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Échec de l'envoi de la photo." };
   }
 
   const supabase = await createServerSupabaseClient();
   const { error } = await supabase.from("merchant_gallery_photos").insert({
     merchant_id: merchant.merchantId,
-    url: parsed.data.url,
+    url,
   });
 
   if (error) return { error: error.message };

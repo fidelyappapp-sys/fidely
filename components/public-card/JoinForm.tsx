@@ -47,6 +47,7 @@ export function JoinForm({ merchantSlug }: { merchantSlug: string }) {
         <input
           id="fullName"
           name="fullName"
+          required
           className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
         />
       </div>

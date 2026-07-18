@@ -27,7 +27,7 @@ export const programUpdateSchema = z.object({
 
 export const joinSchema = z.object({
   merchantSlug: z.string().trim().min(1),
-  fullName: z.string().trim().min(1).max(120).optional().or(z.literal("")),
+  fullName: z.string().trim().min(1, "Le nom est requis").max(120),
   email: z.string().trim().email().optional().or(z.literal("")),
   phone: z.string().trim().min(6).max(30).optional().or(z.literal("")),
   birthDate: z
@@ -87,11 +87,16 @@ export const menuItemSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(300).optional().or(z.literal("")),
   priceCents: z.coerce.number().int().min(0).max(1_000_000).optional(),
-  photoUrl: z.string().trim().url("Lien invalide").max(500).optional().or(z.literal("")),
 });
 
-export const galleryPhotoSchema = z.object({
-  url: z.string().trim().url("Lien invalide").max(500),
+export const cardCustomizationSchema = z.object({
+  brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur hexadécimale invalide"),
+  stampStyle: z.enum(["star", "square", "triangle", "heart", "butterfly", "circle", "diamond"]),
+});
+
+export const employeeSchema = z.object({
+  firstName: z.string().trim().min(1).max(60),
+  lastName: z.string().trim().min(1).max(60),
 });
 
 export const qrCodeSchema = z.object({
@@ -110,6 +115,5 @@ const shippingAddressFields = {
 
 export const kitDeliverySchema = z.discriminatedUnion("method", [
   z.object({ method: z.literal("hand_delivery") }),
-  z.object({ method: z.literal("express_shipping"), ...shippingAddressFields }),
-  z.object({ method: z.literal("standard_shipping"), ...shippingAddressFields }),
+  z.object({ method: z.literal("postal_shipping"), ...shippingAddressFields }),
 ]);

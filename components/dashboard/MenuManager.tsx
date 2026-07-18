@@ -27,10 +27,12 @@ export function MenuManager({ items }: { items: MenuItem[] }) {
   const router = useRouter();
   const [addState, addAction, addPending] = useActionState(addMenuItem, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const photoNameRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (addState.success) {
       formRef.current?.reset();
+      if (photoNameRef.current) photoNameRef.current.textContent = "Ajouter une photo";
       router.refresh();
     }
   }, [addState.success, router]);
@@ -101,12 +103,20 @@ export function MenuManager({ items }: { items: MenuItem[] }) {
             placeholder="Prix en centimes (ex: 850)"
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
           />
-          <input
-            name="photoUrl"
-            type="url"
-            placeholder="URL photo (optionnel)"
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
-          />
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 hover:border-gray-400 hover:text-gray-900">
+            📷 <span ref={photoNameRef}>Ajouter une photo</span>
+            <input
+              name="photo"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                if (photoNameRef.current) {
+                  photoNameRef.current.textContent = e.target.files?.[0]?.name ?? "Ajouter une photo";
+                }
+              }}
+              className="hidden"
+            />
+          </label>
           <input
             name="description"
             placeholder="Description (optionnel)"

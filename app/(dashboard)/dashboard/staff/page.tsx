@@ -1,23 +1,66 @@
 import { requireMerchantContext } from "@/lib/merchant";
-import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
-import { InviteStaffForm } from "@/components/dashboard/InviteStaffForm";
-import { removeStaffMemberFormAction } from "@/lib/actions/staff";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { urlQrDataUrl } from "@/lib/qr/generate";
+import { appBaseUrl } from "@/lib/env";
+import { AddEmployeeForm } from "@/components/dashboard/AddEmployeeForm";
+import { EmployeeList, type EmployeeItem } from "@/components/dashboard/EmployeeList";
 
 export default async function StaffPage() {
   const merchant = await requireMerchantContext();
   const supabase = await createServerSupabaseClient();
 
-  const { data: staffRows } = await supabase
+  // The employee-name / active / scan_token columns only exist once
+  // migration 0009_team_members.sql has been applied — fall back to the
+  // guaranteed-since-0001 columns so the owner's own row (and thus this
+  // page) never just disappears in the meantime.
+  let staffRows: {
+    id: string;
+    role: string;
+    first_name: string | null;
+    last_name: string | null;
+    active: boolean;
+    scan_token: string | null;
+    created_at: string;
+  }[] = [];
+
+  const richQuery = await supabase
     .from("merchant_staff")
-    .select("id, role, auth_user_id, created_at")
+    .select("id, role, first_name, last_name, active, scan_token, created_at")
     .eq("merchant_id", merchant.merchantId)
     .order("created_at", { ascending: true });
 
-  const db = createServiceRoleClient();
-  const staffWithEmails = await Promise.all(
-    (staffRows ?? []).map(async (row) => {
-      const { data } = await db.auth.admin.getUserById(row.auth_user_id);
-      return { ...row, email: data.user?.email ?? "—" };
+  if (!richQuery.error && richQuery.data) {
+    staffRows = richQuery.data;
+  } else {
+    const fallbackQuery = await supabase
+      .from("merchant_staff")
+      .select("id, role, created_at")
+      .eq("merchant_id", merchant.merchantId)
+      .order("created_at", { ascending: true });
+    staffRows = (fallbackQuery.data ?? []).map((row) => ({
+      ...row,
+      first_name: null,
+      last_name: null,
+      active: true,
+      scan_token: null,
+    }));
+  }
+
+  const employees: EmployeeItem[] = await Promise.all(
+    staffRows.map(async (row) => {
+      const isOwner = row.role === "owner";
+      const name = [row.first_name, row.last_name].filter(Boolean).join(" ") || (isOwner ? merchant.businessName + " (vous)" : "Employé");
+
+      return {
+        id: row.id,
+        name,
+        isOwner,
+        active: row.active,
+        qrDataUrl:
+          !isOwner && row.active && row.scan_token
+            ? await urlQrDataUrl(`${appBaseUrl()}/staff-scan/${row.scan_token}`)
+            : null,
+      };
     })
   );
 
@@ -25,48 +68,18 @@ export default async function StaffPage() {
     <div>
       <h1 className="text-2xl font-semibold">Équipe</h1>
       <p className="mt-1 text-sm text-gray-600">
-        Les membres invités peuvent utiliser le scanner et consulter le tableau de bord.
+        Chaque employé scanne son propre QR code pour ouvrir le scanner sur un appareil de caisse
+        partagé — aucun identifiant ni mot de passe à retenir.
       </p>
 
       {merchant.role === "owner" && (
-        <div className="mt-6 max-w-md">
-          <InviteStaffForm />
+        <div className="mt-6 max-w-lg">
+          <AddEmployeeForm />
         </div>
       )}
 
-      <div className="mt-8 overflow-hidden rounded-2xl border border-gray-100">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-500">
-            <tr>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Rôle</th>
-              <th className="px-4 py-3 font-medium">Depuis</th>
-              {merchant.role === "owner" && <th className="px-4 py-3" />}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {staffWithEmails.map((staff) => (
-              <tr key={staff.id}>
-                <td className="px-4 py-3">{staff.email}</td>
-                <td className="px-4 py-3 capitalize">{staff.role}</td>
-                <td className="px-4 py-3 text-gray-500">
-                  {new Date(staff.created_at).toLocaleDateString("fr-FR")}
-                </td>
-                {merchant.role === "owner" && (
-                  <td className="px-4 py-3 text-right">
-                    {staff.role === "staff" && (
-                      <form action={removeStaffMemberFormAction.bind(null, staff.id)}>
-                        <button type="submit" className="text-xs text-red-600 hover:underline">
-                          Retirer
-                        </button>
-                      </form>
-                    )}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mt-10">
+        <EmployeeList employees={employees} canManage={merchant.role === "owner"} />
       </div>
     </div>
   );

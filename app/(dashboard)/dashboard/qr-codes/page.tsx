@@ -1,38 +1,20 @@
+import Link from "next/link";
 import { requireMerchantContext } from "@/lib/merchant";
-import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { urlQrDataUrl } from "@/lib/qr/generate";
 import { appBaseUrl } from "@/lib/env";
-import { getMerchantQrCodes, getStaffScanRows } from "@/lib/qrCodesData";
-import { StaffQrList } from "@/components/dashboard/StaffQrList";
+import { getMerchantQrCodes } from "@/lib/qrCodesData";
 import { QrCodeManager } from "@/components/dashboard/QrCodeManager";
 
 export default async function QrCodesPage() {
   const merchant = await requireMerchantContext();
   const supabase = await createServerSupabaseClient();
 
-  const [staffRows, customQrRows] = await Promise.all([
-    getStaffScanRows(supabase, merchant.merchantId),
-    getMerchantQrCodes(supabase, merchant.merchantId),
-  ]);
-
+  const customQrRows = await getMerchantQrCodes(supabase, merchant.merchantId);
   const joinUrl = `${appBaseUrl()}/join/${merchant.slug}`;
-  const db = createServiceRoleClient();
 
-  const [joinQr, staffWithQr, customQrCodes] = await Promise.all([
+  const [joinQr, customQrCodes] = await Promise.all([
     urlQrDataUrl(joinUrl),
-    Promise.all(
-      staffRows.map(async (row) => {
-        const { data } = await db.auth.admin.getUserById(row.authUserId);
-        return {
-          id: row.id,
-          role: row.role,
-          email: data.user?.email ?? "—",
-          qrDataUrl: row.scanToken
-            ? await urlQrDataUrl(`${appBaseUrl()}/staff-scan/${row.scanToken}`)
-            : null,
-        };
-      })
-    ),
     Promise.all(
       customQrRows.map(async (row) => ({
         ...row,
@@ -46,18 +28,23 @@ export default async function QrCodesPage() {
       <div>
         <h1 className="text-2xl font-semibold">QR codes</h1>
         <p className="mt-1 text-sm text-gray-600">
-          À imprimer et afficher dans votre commerce, ou à distribuer à votre équipe.
+          À imprimer et afficher dans votre commerce. Le QR de chaque employé pour le scanner se
+          trouve dans{" "}
+          <Link href="/dashboard/staff" className="font-medium text-indigo-600 hover:text-indigo-500">
+            Équipe
+          </Link>
+          .
         </p>
       </div>
 
       <section>
-        <h2 className="font-semibold text-gray-900">Rejoindre</h2>
+        <h2 className="font-semibold text-gray-900">Rejoindre — pour vos clients</h2>
         <p className="mt-1 text-sm text-gray-600">
           Vos clients scannent ce QR pour obtenir leur carte de fidélité.
         </p>
         <div className="mt-4 max-w-xs rounded-2xl border border-gray-100 p-6 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={joinQr} alt="QR code d'inscription" width={200} height={200} className="mx-auto" />
+          <img src={joinQr} alt="QR code d'inscription" width={220} height={220} className="mx-auto" />
           <a
             href={joinQr}
             download="fidely-qr-rejoindre.png"
@@ -65,17 +52,6 @@ export default async function QrCodesPage() {
           >
             Télécharger
           </a>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="font-semibold text-gray-900">QR par employé</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          Chaque membre de l&apos;équipe scanne son propre QR pour ouvrir le scanner sur un
-          appareil partagé en caisse, sans se reconnecter.
-        </p>
-        <div className="mt-4">
-          <StaffQrList staff={staffWithQr} canManage={merchant.role === "owner"} />
         </div>
       </section>
 

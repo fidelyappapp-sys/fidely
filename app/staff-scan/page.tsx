@@ -28,10 +28,12 @@ export default async function StaffScanPage({
   }
 
   const db = createServiceRoleClient();
-  const [{ data: merchantRow }, { data: userData }] = await Promise.all([
+  const [{ data: merchantRow }, { data: staffRow }] = await Promise.all([
     db.from("merchants").select("business_name").eq("id", session.merchantId).maybeSingle(),
-    db.auth.admin.getUserById(session.staffUserId),
+    db.from("merchant_staff").select("first_name, last_name").eq("id", session.staffId).maybeSingle(),
   ]);
+
+  const employeeName = [staffRow?.first_name, staffRow?.last_name].filter(Boolean).join(" ");
 
   return (
     <div className="mx-auto max-w-md px-6 py-10">
@@ -39,7 +41,7 @@ export default async function StaffScanPage({
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Scanner</h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            {userData.user?.email ?? "Employé"} · {merchantRow?.business_name ?? "Commerce"}
+            {employeeName || "Employé"} · {merchantRow?.business_name ?? "Commerce"}
           </p>
         </div>
         <Link href="/staff-scan/logout" className="text-xs font-medium text-gray-500 underline">

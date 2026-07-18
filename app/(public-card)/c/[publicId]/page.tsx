@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { qrCodeDataUrl } from "@/lib/qr/generate";
 import { isAppleWalletConfigured, isGoogleWalletConfigured } from "@/lib/env";
+import type { StampStyle } from "@/lib/supabase/types";
 import { CardPoints } from "@/components/public-card/CardPoints";
 import { WalletButtons } from "@/components/public-card/WalletButtons";
 import { OpenBadge } from "@/components/public-card/OpenBadge";
@@ -24,6 +25,9 @@ export default async function PublicCardPage({
   const { publicId } = await params;
   const db = createServiceRoleClient();
 
+  // Only columns guaranteed to exist since 0001_init.sql — the customer
+  // card must keep resolving regardless of whether the card-customization
+  // migration (stamp_style) has landed on this database yet.
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
@@ -44,12 +48,15 @@ export default async function PublicCardPage({
     reward_description: string;
   } | null;
 
-  const [qrDataUrl, extras, menuItems, galleryPhotos] = await Promise.all([
+  const [qrDataUrl, extras, menuItems, galleryPhotos, stampStyleRow] = await Promise.all([
     qrCodeDataUrl(publicId),
     getMerchantPageExtras(db, card.merchant_id),
     getMerchantMenuItems(db, card.merchant_id),
     getMerchantGalleryPhotos(db, card.merchant_id),
+    db.from("merchants").select("stamp_style").eq("id", card.merchant_id).maybeSingle(),
   ]);
+
+  const stampStyle: StampStyle = (stampStyleRow.data?.stamp_style as StampStyle | undefined) ?? "circle";
 
   const brandColor = merchant?.brand_color ?? "#111827";
 
@@ -99,6 +106,7 @@ export default async function PublicCardPage({
         >
           <CardPoints
             publicId={publicId}
+            stampStyle={stampStyle}
             initial={{
               points: card.points,
               rewardThreshold: program?.reward_threshold ?? 0,

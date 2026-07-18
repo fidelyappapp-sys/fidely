@@ -13,7 +13,7 @@ export interface KitDeliveryActionState {
   success?: boolean;
 }
 
-const EXPRESS_SHIPPING_CENTS = 399;
+const POSTAL_SHIPPING_CENTS = 399;
 
 export async function chooseKitDelivery(
   _prevState: KitDeliveryActionState,
@@ -51,7 +51,7 @@ export async function chooseKitDelivery(
 
   let paymentIntentId: string | null = null;
 
-  if (parsed.data.method === "express_shipping") {
+  if (parsed.data.method === "postal_shipping") {
     if (!isStripeConfigured) {
       return { error: "La facturation n'est pas encore configurée." };
     }
@@ -64,7 +64,7 @@ export async function chooseKitDelivery(
 
     if (!merchantRow?.stripe_customer_id) {
       return {
-        error: "Activez d'abord la facturation (carte enregistrée) avant de choisir l'envoi express.",
+        error: "Activez d'abord la facturation (carte enregistrée) avant de choisir la livraison postale.",
       };
     }
 
@@ -75,12 +75,12 @@ export async function chooseKitDelivery(
     try {
       const intent = await stripe().paymentIntents.create({
         customer: merchantRow.stripe_customer_id,
-        amount: EXPRESS_SHIPPING_CENTS,
+        amount: POSTAL_SHIPPING_CENTS,
         currency: "eur",
         off_session: true,
         confirm: true,
-        description: "Fidély — kit de démarrage, envoi express",
-        metadata: { merchant_id: merchant.merchantId, kind: "kit_express_shipping" },
+        description: "Fidély — kit de démarrage, envoi postal",
+        metadata: { merchant_id: merchant.merchantId, kind: "kit_postal_shipping" },
       });
       paymentIntentId = intent.id;
     } catch (err) {

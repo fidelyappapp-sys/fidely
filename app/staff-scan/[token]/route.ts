@@ -5,19 +5,19 @@ import { appBaseUrl } from "@/lib/env";
 
 export const runtime = "nodejs";
 
-// Opened by scanning an employee's personal QR code (see the "QR codes"
+// Opened by scanning an employee's personal QR code (see the "Équipe"
 // dashboard page): sets this device up as that employee for the /staff-scan
 // scanner, without requiring a Supabase Auth login on a shared counter
-// tablet. scan_token only exists once migration 0005_qr_codes.sql has been
-// applied — until then this always reports an invalid link.
+// tablet.
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const db = createServiceRoleClient();
 
   const { data: staffRow, error } = await db
     .from("merchant_staff")
-    .select("merchant_id, auth_user_id")
+    .select("id, merchant_id, auth_user_id, active")
     .eq("scan_token", token)
+    .eq("active", true)
     .maybeSingle();
 
   const url = new URL("/staff-scan", appBaseUrl());
@@ -28,7 +28,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
 
   const session = await signStaffScanSession({
     merchantId: staffRow.merchant_id,
-    staffUserId: staffRow.auth_user_id,
+    staffId: staffRow.id,
+    authUserId: staffRow.auth_user_id,
   });
 
   const response = NextResponse.redirect(url);

@@ -21,11 +21,19 @@ function secretKey() {
 
 export interface StaffScanSession {
   merchantId: string;
-  staffUserId: string;
+  // merchant_staff.id — always present, used to look up the employee's name.
+  staffId: string;
+  // merchant_staff.auth_user_id — null for name-only employees (no Supabase
+  // Auth account). Scan attribution then falls back to just the merchant.
+  authUserId: string | null;
 }
 
 export async function signStaffScanSession(session: StaffScanSession): Promise<string> {
-  return new SignJWT({ merchantId: session.merchantId, staffUserId: session.staffUserId })
+  return new SignJWT({
+    merchantId: session.merchantId,
+    staffId: session.staffId,
+    authUserId: session.authUserId,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setAudience("fidely-staff-scan")
     .setIssuedAt()
@@ -36,10 +44,14 @@ export async function signStaffScanSession(session: StaffScanSession): Promise<s
 export async function verifyStaffScanSession(token: string): Promise<StaffScanSession | null> {
   try {
     const { payload } = await jwtVerify(token, secretKey(), { audience: "fidely-staff-scan" });
-    if (typeof payload.merchantId !== "string" || typeof payload.staffUserId !== "string") {
+    if (
+      typeof payload.merchantId !== "string" ||
+      typeof payload.staffId !== "string" ||
+      (typeof payload.authUserId !== "string" && payload.authUserId !== null)
+    ) {
       return null;
     }
-    return { merchantId: payload.merchantId, staffUserId: payload.staffUserId };
+    return { merchantId: payload.merchantId, staffId: payload.staffId, authUserId: payload.authUserId };
   } catch {
     return null;
   }

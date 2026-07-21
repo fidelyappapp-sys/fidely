@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { isStripeConfigured } from "@/lib/env";
+import type { KitShippingAddress, ShopOrderItem, ShopOrderStatus } from "@/lib/supabase/types";
 
 type Db = ReturnType<typeof createServiceRoleClient>;
 
@@ -113,6 +114,38 @@ export async function getPendingKitOrders(db: Db): Promise<PendingKitOrder[]> {
     createdAt: m.created_at,
     deliveryMethod: m.kit_delivery_method,
     shippingAddress: m.kit_shipping_address,
+  }));
+}
+
+export interface AdminShopOrder {
+  id: string;
+  businessName: string;
+  items: ShopOrderItem[];
+  amountCents: number;
+  status: ShopOrderStatus;
+  deliveryMethod: string | null;
+  shippingAddress: KitShippingAddress | null;
+  createdAt: string;
+}
+
+// Excludes "pending" (abandoned/incomplete checkouts never paid) — only
+// orders that actually went through show up for the admin to fulfill.
+export async function getShopOrders(db: Db): Promise<AdminShopOrder[]> {
+  const { data } = await db
+    .from("shop_orders")
+    .select("id, merchant_id, items, amount_cents, status, delivery_method, shipping_address, created_at, merchants(business_name)")
+    .in("status", ["paid", "shipped", "delivered"])
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    businessName: (row.merchants as unknown as { business_name: string } | null)?.business_name ?? "?",
+    items: row.items as ShopOrderItem[],
+    amountCents: row.amount_cents,
+    status: row.status,
+    deliveryMethod: row.delivery_method,
+    shippingAddress: row.shipping_address as KitShippingAddress | null,
+    createdAt: row.created_at,
   }));
 }
 

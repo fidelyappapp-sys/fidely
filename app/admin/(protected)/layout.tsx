@@ -6,6 +6,7 @@ const navItems = [
   { href: "/admin", label: "Vue d'ensemble" },
   { href: "/admin/merchants", label: "Commerçants" },
   { href: "/admin/kits", label: "Kits en attente" },
+  { href: "/admin/orders", label: "Commandes boutique" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

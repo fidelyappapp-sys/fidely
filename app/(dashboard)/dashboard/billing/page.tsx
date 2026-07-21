@@ -19,7 +19,12 @@ export default async function BillingPage() {
 
   const scans = scansThisMonth ?? 0;
   const estimatedBill = Math.max(30, scans * 0.1);
-  const hasActiveSubscription = merchant.subscriptionStatus === "active";
+
+  const { data: pauseRow } = await supabase
+    .from("merchants")
+    .select("subscription_pause_ends_at")
+    .eq("id", merchant.merchantId)
+    .maybeSingle();
 
   return (
     <div>
@@ -51,7 +56,11 @@ export default async function BillingPage() {
 
       {isStripeConfigured && (
         <div className="mt-8">
-          <BillingActions hasActiveSubscription={hasActiveSubscription} />
+          <BillingActions
+            subscriptionStatus={merchant.subscriptionStatus}
+            pauseEndsAt={pauseRow?.subscription_pause_ends_at ?? null}
+            isOwner={merchant.role === "owner"}
+          />
         </div>
       )}
     </div>

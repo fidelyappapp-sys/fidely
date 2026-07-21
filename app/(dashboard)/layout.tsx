@@ -57,7 +57,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <header className="hidden items-center justify-between border-b border-gray-100 px-8 py-4 sm:flex">
           <span className="text-sm text-gray-500">{merchant.businessName}</span>
           <div className="flex items-center gap-2">
-            {merchant.subscriptionStatus !== "active" && (
+            {merchant.subscriptionStatus === "paused" && (
+              <Link
+                href="/dashboard/billing"
+                className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700"
+              >
+                Abonnement en pause
+              </Link>
+            )}
+            {merchant.subscriptionStatus !== "active" && merchant.subscriptionStatus !== "paused" && (
               <Link
                 href="/dashboard/billing"
                 className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700"

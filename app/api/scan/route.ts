@@ -61,6 +61,16 @@ export async function POST(request: Request) {
     );
   }
 
+  const { data: subscriptionRow } = await db
+    .from("merchants")
+    .select("subscription_status")
+    .eq("id", card.merchant_id)
+    .maybeSingle();
+
+  if (subscriptionRow?.subscription_status === "paused") {
+    return NextResponse.json({ error: "Abonnement en pause." }, { status: 403 });
+  }
+
   const { data: result, error: rpcError } = await db
     .rpc("award_scan_points", {
       p_loyalty_card_id: card.id,

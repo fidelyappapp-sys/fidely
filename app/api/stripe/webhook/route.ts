@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         .update({
           stripe_subscription_id: subscription.id,
           stripe_subscription_item_id: subscription.items.data[0]?.id ?? null,
-          subscription_status: subscription.status,
+          subscription_status: resolveSubscriptionStatus(subscription),
         })
         .eq("stripe_customer_id", subscription.customer as string);
       break;
@@ -113,7 +113,16 @@ async function syncSubscription(
     .update({
       stripe_subscription_id: subscription.id,
       stripe_subscription_item_id: subscription.items.data[0]?.id ?? null,
-      subscription_status: subscription.status,
+      subscription_status: resolveSubscriptionStatus(subscription),
     })
     .eq("stripe_customer_id", customerId);
+}
+
+// Stripe's own subscription.status stays "active" while pause_collection is
+// set (pausing billing doesn't change the subscription's lifecycle status),
+// so a naive sync would silently un-pause a merchant the moment any
+// customer.subscription.updated event arrives. Treat pause_collection as
+// the source of truth for our "paused" app-level status instead.
+function resolveSubscriptionStatus(subscription: Stripe.Subscription): string {
+  return subscription.pause_collection ? "paused" : subscription.status;
 }

@@ -32,7 +32,7 @@ export default async function PublicCardPage({
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      "points, merchant_id, pass_serial_number, merchants(business_name, brand_color, logo_url), loyalty_programs(reward_threshold, reward_description)"
+      "points, merchant_id, pass_serial_number, merchants(business_name, brand_color, logo_url, subscription_status), loyalty_programs(reward_threshold, reward_description)"
     )
     .eq("public_id", publicId)
     .maybeSingle();
@@ -43,7 +43,9 @@ export default async function PublicCardPage({
     business_name: string;
     brand_color: string;
     logo_url: string | null;
+    subscription_status: string;
   } | null;
+  const isPaused = merchant?.subscription_status === "paused";
   const program = card.loyalty_programs as unknown as {
     reward_threshold: number;
     reward_description: string;
@@ -99,42 +101,53 @@ export default async function PublicCardPage({
         </div>
       </div>
 
-      {/* Points card, floating over the cover */}
+      {/* Points card, floating over the cover — replaced by a closed notice while paused */}
       <div className="relative mx-auto -mt-12 w-full max-w-md px-6">
-        <div
-          className="rounded-3xl p-6 text-center text-white shadow-xl shadow-black/10"
-          style={{ backgroundColor: brandColor }}
-        >
-          <CardPoints
-            publicId={publicId}
-            stampStyle={stampStyle}
-            initial={{
-              points: card.points,
-              rewardThreshold: program?.reward_threshold ?? 0,
-              rewardDescription: program?.reward_description ?? "",
-            }}
-          />
-
-          <div className="mx-auto mt-6 flex w-fit items-center justify-center rounded-2xl bg-white p-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrDataUrl} alt="QR code de fidélité" width={180} height={180} />
+        {isPaused ? (
+          <div className="rounded-3xl bg-white p-6 text-center shadow-xl shadow-black/10">
+            <p className="text-lg font-semibold text-gray-900">Commerce temporairement fermé</p>
+            <p className="mt-2 text-sm text-gray-500">
+              Ce commerce ne peut pas enregistrer de nouveaux points pour le moment. Revenez bientôt !
+            </p>
           </div>
-          <p className="mt-3 text-xs opacity-80">
-            Présentez ce QR code en caisse pour cumuler des points.
-          </p>
-        </div>
+        ) : (
+          <>
+            <div
+              className="rounded-3xl p-6 text-center text-white shadow-xl shadow-black/10"
+              style={{ backgroundColor: brandColor }}
+            >
+              <CardPoints
+                publicId={publicId}
+                stampStyle={stampStyle}
+                initial={{
+                  points: card.points,
+                  rewardThreshold: program?.reward_threshold ?? 0,
+                  rewardDescription: program?.reward_description ?? "",
+                }}
+              />
 
-        <div className="mt-4">
-          <WalletButtons
-            publicId={publicId}
-            passSerialNumber={card.pass_serial_number}
-            appleConfigured={isAppleWalletConfigured}
-            googleConfigured={isGoogleWalletConfigured}
-          />
-        </div>
+              <div className="mx-auto mt-6 flex w-fit items-center justify-center rounded-2xl bg-white p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={qrDataUrl} alt="QR code de fidélité" width={180} height={180} />
+              </div>
+              <p className="mt-3 text-xs opacity-80">
+                Présentez ce QR code en caisse pour cumuler des points.
+              </p>
+            </div>
 
-        {isWebPushConfigured && (
-          <PushOptIn publicId={publicId} vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!} />
+            <div className="mt-4">
+              <WalletButtons
+                publicId={publicId}
+                passSerialNumber={card.pass_serial_number}
+                appleConfigured={isAppleWalletConfigured}
+                googleConfigured={isGoogleWalletConfigured}
+              />
+            </div>
+
+            {isWebPushConfigured && (
+              <PushOptIn publicId={publicId} vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!} />
+            )}
+          </>
         )}
 
         <div className="mt-6">

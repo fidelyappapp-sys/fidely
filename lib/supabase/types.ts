@@ -53,6 +53,10 @@ export interface Database {
           stripe_subscription_id: string | null;
           stripe_subscription_item_id: string | null;
           subscription_status: SubscriptionStatus;
+          subscription_canceled_at: string | null;
+          subscription_paused_at: string | null;
+          subscription_pause_ends_at: string | null;
+          pause_reminder_sent_at: string | null;
           onboarding_completed: boolean;
           google_maps_link: string | null;
           birthday_notifications_enabled: boolean;

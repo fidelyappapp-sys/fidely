@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       const subscription = event.data.object as Stripe.Subscription;
       await db
         .from("merchants")
-        .update({ subscription_status: "canceled" })
+        .update({ subscription_status: "canceled", subscription_canceled_at: new Date().toISOString() })
         .eq("stripe_customer_id", subscription.customer as string);
       break;
     }

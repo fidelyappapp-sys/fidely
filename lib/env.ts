@@ -22,6 +22,8 @@ export const isWebPushConfigured = Boolean(
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
 );
 
+export const isEmailConfigured = Boolean(process.env.RESEND_API_KEY);
+
 export function appBaseUrl() {
   return process.env.APP_BASE_URL ?? "http://localhost:3000";
 }

@@ -13,7 +13,17 @@ export interface MerchantContext {
   subscriptionStatus: string;
   role: MerchantStaffRole;
   userId: string;
+  // Every commerce this user belongs to — length 1 for the common case.
+  // The dashboard merchant switcher only renders when there's more than one.
+  allMerchants: { merchantId: string; businessName: string }[];
 }
+
+// Cookie holding the merchant_id the user is currently viewing, for users
+// who belong to more than one commerce (see lib/actions/boutique.ts ->
+// createAdditionalMerchant). Absent or stale values just fall back to the
+// first commerce below — this is a view preference, not an auth boundary
+// (every row returned here is already scoped to the caller via RLS).
+export const ACTIVE_MERCHANT_COOKIE = "fidely_active_merchant";
 
 // Resolves the authenticated user's merchant + role, or redirects to
 // /login (no session) or /onboarding (no merchant yet). Every dashboard
@@ -28,13 +38,18 @@ export async function requireMerchantContext(): Promise<MerchantContext> {
 
   if (!user) redirect("/login");
 
-  const { data: staffRow } = await supabase
+  const { data: staffRows } = await supabase
     .from("merchant_staff")
     .select("role, merchant_id, merchants(business_name, slug, brand_color, logo_url, subscription_status)")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .eq("auth_user_id", user.id);
 
-  if (!staffRow || !staffRow.merchants) redirect("/onboarding");
+  if (!staffRows || staffRows.length === 0) redirect("/onboarding");
+
+  const cookieStore = await cookies();
+  const activeMerchantId = cookieStore.get(ACTIVE_MERCHANT_COOKIE)?.value;
+  const staffRow = staffRows.find((row) => row.merchant_id === activeMerchantId) ?? staffRows[0];
+
+  if (!staffRow.merchants) redirect("/onboarding");
 
   const merchant = staffRow.merchants as unknown as {
     business_name: string;
@@ -53,6 +68,12 @@ export async function requireMerchantContext(): Promise<MerchantContext> {
     subscriptionStatus: merchant.subscription_status,
     role: staffRow.role as MerchantStaffRole,
     userId: user.id,
+    allMerchants: staffRows
+      .filter((row) => row.merchants)
+      .map((row) => ({
+        merchantId: row.merchant_id,
+        businessName: (row.merchants as unknown as { business_name: string }).business_name,
+      })),
   };
 }
 
@@ -72,17 +93,21 @@ export async function getStaffContextOrNull(): Promise<{
     data: { user },
   } = await supabase.auth.getUser();
 
+  const cookieStore = await cookies();
+
   if (user) {
-    const { data: staffRow } = await supabase
+    const { data: staffRows } = await supabase
       .from("merchant_staff")
       .select("merchant_id")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
+      .eq("auth_user_id", user.id);
 
-    if (staffRow) return { merchantId: staffRow.merchant_id, userId: user.id };
+    if (staffRows && staffRows.length > 0) {
+      const activeMerchantId = cookieStore.get(ACTIVE_MERCHANT_COOKIE)?.value;
+      const staffRow = staffRows.find((row) => row.merchant_id === activeMerchantId) ?? staffRows[0];
+      return { merchantId: staffRow.merchant_id, userId: user.id };
+    }
   }
 
-  const cookieStore = await cookies();
   const scanToken = cookieStore.get(STAFF_SCAN_COOKIE)?.value;
   if (!scanToken) return null;
 

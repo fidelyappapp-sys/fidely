@@ -38,6 +38,15 @@ export interface KitShippingAddress {
   country: string;
 }
 
+export type ShopOrderStatus = "pending" | "paid" | "shipped" | "delivered";
+
+export interface ShopOrderItem {
+  key: "display_stand" | "sheet" | "qr" | "full_kit" | "new_shop_kit";
+  label: string;
+  quantity: number;
+  unitAmountCents: number;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -69,6 +78,7 @@ export interface Database {
           kit_delivery_status: KitDeliveryStatus;
           kit_payment_intent_id: string | null;
           stamp_style: StampStyle;
+          business_type: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["merchants"]["Row"]> & {
@@ -460,6 +470,34 @@ export interface Database {
             columns: ["loyalty_card_id"];
             isOneToOne: false;
             referencedRelation: "loyalty_cards";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shop_orders: {
+        Row: {
+          id: string;
+          merchant_id: string;
+          items: ShopOrderItem[];
+          amount_cents: number;
+          delivery_method: KitDeliveryMethod | null;
+          shipping_address: KitShippingAddress | null;
+          status: ShopOrderStatus;
+          stripe_checkout_session_id: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["shop_orders"]["Row"]> & {
+          merchant_id: string;
+          items: ShopOrderItem[];
+          amount_cents: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["shop_orders"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "shop_orders_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
             referencedColumns: ["id"];
           },
         ];

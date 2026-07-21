@@ -3,6 +3,7 @@ import { requireMerchantContext } from "@/lib/merchant";
 import { signOut } from "@/lib/actions/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getKitDeliveryInfo } from "@/lib/kitDeliveryData";
+import { MerchantSwitcher } from "@/components/dashboard/MerchantSwitcher";
 
 const navItems = [
   { href: "/dashboard", label: "Vue d'ensemble" },
@@ -13,6 +14,7 @@ const navItems = [
   { href: "/dashboard/kit-delivery", label: "Kit de démarrage" },
   { href: "/dashboard/notifications", label: "Notifications" },
   { href: "/dashboard/billing", label: "Facturation" },
+  { href: "/boutique", label: "Boutique" },
   { href: "/dashboard/staff", label: "Équipe" },
   { href: "/dashboard/settings", label: "Paramètres" },
 ];
@@ -55,7 +57,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <span className="font-semibold">{merchant.businessName}</span>
         </header>
         <header className="hidden items-center justify-between border-b border-gray-100 px-8 py-4 sm:flex">
-          <span className="text-sm text-gray-500">{merchant.businessName}</span>
+          {merchant.allMerchants.length > 1 ? (
+            <MerchantSwitcher merchants={merchant.allMerchants} activeMerchantId={merchant.merchantId} />
+          ) : (
+            <span className="text-sm text-gray-500">{merchant.businessName}</span>
+          )}
           <div className="flex items-center gap-2">
             {merchant.subscriptionStatus === "paused" && (
               <Link

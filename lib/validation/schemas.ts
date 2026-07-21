@@ -115,7 +115,7 @@ export const qrCodeSchema = z.object({
   targetUrl: z.string().trim().url("Lien invalide").max(500),
 });
 
-const shippingAddressFields = {
+export const shippingAddressFields = {
   shippingName: z.string().trim().min(2).max(120),
   shippingLine1: z.string().trim().min(2).max(200),
   shippingLine2: z.string().trim().max(200).optional().or(z.literal("")),
@@ -128,3 +128,23 @@ export const kitDeliverySchema = z.discriminatedUnion("method", [
   z.object({ method: z.literal("hand_delivery") }),
   z.object({ method: z.literal("postal_shipping"), ...shippingAddressFields }),
 ]);
+
+const boutiqueItemSchema = z.object({
+  key: z.enum(["display_stand", "sheet", "qr", "full_kit"]),
+  quantity: z.number().int().min(1).max(20),
+});
+
+export const boutiqueCheckoutSchema = z.discriminatedUnion("deliveryMethod", [
+  z.object({ deliveryMethod: z.literal("hand_delivery"), items: z.array(boutiqueItemSchema).min(1) }),
+  z.object({
+    deliveryMethod: z.literal("postal_shipping"),
+    items: z.array(boutiqueItemSchema).min(1),
+    ...shippingAddressFields,
+  }),
+]);
+
+export const addMerchantSchema = z.object({
+  businessName: z.string().trim().min(2).max(120),
+  address: z.string().trim().min(2).max(300),
+  businessType: z.string().trim().min(2).max(80),
+});

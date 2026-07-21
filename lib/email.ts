@@ -24,3 +24,48 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     console.error("[email] Échec de l'envoi", subject, to, err);
   }
 }
+
+interface OrderEmailItem {
+  label: string;
+  quantity: number;
+}
+
+export async function sendOrderConfirmationEmail(params: {
+  to: string;
+  businessName: string;
+  items: OrderEmailItem[];
+  amountCents: number;
+  deliveryMethod: string;
+}): Promise<void> {
+  const itemsHtml = params.items.map((i) => `<li>${i.quantity} × ${i.label}</li>`).join("");
+  const delivery = params.deliveryMethod === "hand_delivery" ? "Remise en main propre" : "Envoi La Poste";
+  await sendEmail(
+    params.to,
+    "Confirmation de votre commande Fidély",
+    `<p>Bonjour,</p><p>Votre commande pour <strong>${params.businessName}</strong> est confirmée :</p><ul>${itemsHtml}</ul><p>Total : ${(params.amountCents / 100).toFixed(2)}€</p><p>Livraison : ${delivery}</p>`
+  );
+}
+
+export async function sendAdminOrderNotification(params: {
+  businessName: string;
+  items: OrderEmailItem[];
+  amountCents: number;
+  deliveryMethod: string;
+  shippingAddress: { name: string; line1: string; line2: string; postalCode: string; city: string; country: string } | null;
+}): Promise<void> {
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!adminEmail) {
+    console.warn("[email] ADMIN_NOTIFICATION_EMAIL non configuré, notification de commande non envoyée");
+    return;
+  }
+  const itemsHtml = params.items.map((i) => `<li>${i.quantity} × ${i.label}</li>`).join("");
+  const delivery = params.deliveryMethod === "hand_delivery" ? "Remise en main propre" : "Envoi La Poste";
+  const addressHtml = params.shippingAddress
+    ? `<p>${params.shippingAddress.name}<br/>${params.shippingAddress.line1} ${params.shippingAddress.line2}<br/>${params.shippingAddress.postalCode} ${params.shippingAddress.city}, ${params.shippingAddress.country}</p>`
+    : "";
+  await sendEmail(
+    adminEmail,
+    `Nouvelle commande boutique — ${params.businessName}`,
+    `<p>Commande de <strong>${params.businessName}</strong> :</p><ul>${itemsHtml}</ul><p>Total : ${(params.amountCents / 100).toFixed(2)}€</p><p>Livraison : ${delivery}</p>${addressHtml}`
+  );
+}

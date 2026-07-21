@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { sendOrderConfirmationEmail, sendAdminOrderNotification } from "@/lib/email";
+import type { KitShippingAddress, ShopOrderItem } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
@@ -45,7 +47,9 @@ export async function POST(request: Request) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      if (session.customer && session.subscription) {
+      if (session.metadata?.type === "boutique_order") {
+        await processBoutiqueOrder(db, session);
+      } else if (session.customer && session.subscription) {
         await syncSubscription(
           db,
           session.customer as string,
@@ -116,6 +120,55 @@ async function syncSubscription(
       subscription_status: resolveSubscriptionStatus(subscription),
     })
     .eq("stripe_customer_id", customerId);
+}
+
+async function processBoutiqueOrder(
+  db: ReturnType<typeof createServiceRoleClient>,
+  session: Stripe.Checkout.Session
+) {
+  const orderId = session.metadata?.order_id;
+  if (!orderId) return;
+
+  const { data: order } = await db
+    .from("shop_orders")
+    .update({ status: "paid", stripe_checkout_session_id: session.id })
+    .eq("id", orderId)
+    .select("id, merchant_id, items, amount_cents, delivery_method, shipping_address")
+    .single();
+
+  if (!order) return;
+
+  const { data: merchant } = await db
+    .from("merchants")
+    .select("business_name, auth_user_id")
+    .eq("id", order.merchant_id)
+    .single();
+
+  if (!merchant) return;
+
+  const { data: userResult } = await db.auth.admin.getUserById(merchant.auth_user_id);
+  const merchantEmail = userResult.user?.email;
+
+  const items = order.items as ShopOrderItem[];
+
+  await Promise.allSettled([
+    merchantEmail
+      ? sendOrderConfirmationEmail({
+          to: merchantEmail,
+          businessName: merchant.business_name,
+          items,
+          amountCents: order.amount_cents,
+          deliveryMethod: order.delivery_method ?? "hand_delivery",
+        })
+      : Promise.resolve(),
+    sendAdminOrderNotification({
+      businessName: merchant.business_name,
+      items,
+      amountCents: order.amount_cents,
+      deliveryMethod: order.delivery_method ?? "hand_delivery",
+      shippingAddress: order.shipping_address as KitShippingAddress | null,
+    }),
+  ]);
 }
 
 // Stripe's own subscription.status stays "active" while pause_collection is

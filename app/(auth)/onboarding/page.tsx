@@ -11,13 +11,13 @@ export default async function OnboardingPage() {
   if (!user) redirect("/login");
 
   const db = createServiceRoleClient();
-  const { data: staffRow } = await db
+  const { data: staffRows } = await db
     .from("merchant_staff")
     .select("merchant_id")
     .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .limit(1);
 
-  if (staffRow) redirect("/dashboard");
+  if (staffRows && staffRows.length > 0) redirect("/dashboard");
 
   return (
     <div>

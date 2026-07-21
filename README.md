@@ -51,3 +51,4 @@ docs/                guides de configuration Stripe / Apple / Google Wallet
 - `npm run dev` — serveur de développement
 - `npm run build` — build de production
 - `npm run stripe:setup` — crée le Meter/Product/Price Stripe (voir [docs/STRIPE_SETUP.md](docs/STRIPE_SETUP.md))
+- `npm run stripe:boutique-setup` — crée les Products/Prices one-time de la boutique (voir [docs/STRIPE_LIVE_CUTOVER.md](docs/STRIPE_LIVE_CUTOVER.md))

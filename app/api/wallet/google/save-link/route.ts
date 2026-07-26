@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      "id, public_id, points, google_object_id, merchants(slug, business_name, brand_color), loyalty_programs(reward_threshold, reward_description)"
+      "id, public_id, points, google_object_id, merchants(slug, business_name, brand_color, logo_url), loyalty_programs(reward_threshold, reward_description)"
     )
     .eq("public_id", publicId)
     .maybeSingle();
@@ -34,6 +34,7 @@ export async function GET(request: Request) {
     slug: string;
     business_name: string;
     brand_color: string;
+    logo_url: string | null;
   } | null;
   const program = card.loyalty_programs as unknown as {
     reward_threshold: number;
@@ -52,6 +53,7 @@ export async function GET(request: Request) {
       businessName: merchant.business_name,
       brandColorHex: merchant.brand_color,
       rewardDescription: program.reward_description,
+      logoUrl: merchant.logo_url,
     });
 
     objectId = await upsertLoyaltyObject({

@@ -34,13 +34,20 @@ export async function upsertLoyaltyClass(params: {
   businessName: string;
   brandColorHex: string;
   rewardDescription: string;
+  logoUrl: string | null;
 }): Promise<string> {
+  if (!params.logoUrl) {
+    throw new Error(
+      `Google Wallet requires a program logo; merchant "${params.merchantSlug}" has none configured (Paramètres → Logo).`
+    );
+  }
+
   const id = loyaltyClassId(params.merchantSlug);
   const body = {
     id,
     issuerName: params.businessName,
     programName: params.businessName,
-    programLogo: undefined,
+    programLogo: { sourceUri: { uri: params.logoUrl } },
     hexBackgroundColor: params.brandColorHex,
     reviewStatus: "UNDER_REVIEW",
   };

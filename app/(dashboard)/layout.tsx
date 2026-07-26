@@ -4,6 +4,7 @@ import { signOut } from "@/lib/actions/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getKitDeliveryInfo } from "@/lib/kitDeliveryData";
 import { MerchantSwitcher } from "@/components/dashboard/MerchantSwitcher";
+import { MobileNav } from "@/components/MobileNav";
 
 const navItems = [
   { href: "/dashboard", label: "Vue d'ensemble" },
@@ -55,6 +56,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <div className="flex-1">
         <header className="flex items-center justify-between border-b border-gray-100 px-6 py-4 sm:hidden">
           <span className="font-semibold">{merchant.businessName}</span>
+          <MobileNav navItems={navItems} brand="Fidély" />
         </header>
         <header className="hidden items-center justify-between border-b border-gray-100 px-8 py-4 sm:flex">
           {merchant.allMerchants.length > 1 ? (

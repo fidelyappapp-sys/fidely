@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdminContext } from "@/lib/adminAuth";
 import { adminSignOut } from "@/lib/actions/adminAuth";
+import { MobileNav } from "@/components/MobileNav";
 
 const navItems = [
   { href: "/admin", label: "Vue d'ensemble" },
@@ -42,6 +43,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="flex-1">
         <header className="flex items-center justify-between border-b border-gray-100 px-6 py-4 sm:hidden">
           <span className="font-semibold">Fidély admin</span>
+          <MobileNav navItems={navItems} brand="Fidély admin" />
         </header>
         <main className="p-6 sm:p-8">{children}</main>
       </div>

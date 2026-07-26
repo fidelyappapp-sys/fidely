@@ -24,13 +24,21 @@ Une fois ces 5 variables renseignées (`APPLE_PASS_TYPE_ID`, `APPLE_TEAM_ID`, `A
 
 ## Google Wallet
 
-1. **Projet Google Cloud** : créez ou sélectionnez un projet sur [console.cloud.google.com](https://console.cloud.google.com), activez l'API "Google Wallet API".
-2. **Compte Google Wallet Business Console** : inscrivez-vous sur [Google Wallet Business Console](https://pay.google.com/business/console/) pour obtenir votre **Issuer ID** → `GOOGLE_WALLET_ISSUER_ID`.
-3. **Compte de service** : dans Google Cloud Console → IAM & Admin → Comptes de service → créez un compte de service, générez une clé JSON.
-4. Dans le Wallet Business Console → Utilisateurs, ajoutez l'email du compte de service avec le rôle "Wallet Object Issuer".
-5. Encodez le fichier JSON en base64 : `base64 -i service-account.json` → `GOOGLE_WALLET_SERVICE_ACCOUNT_JSON`.
+L'authentification se fait via **Workload Identity Federation** (WIF) entre l'OIDC de Vercel et Google Cloud — aucune clé de compte de service n'est jamais créée ni stockée. C'est un choix délibéré : la contrainte d'organisation `iam.disableServiceAccountKeyCreation` est active sur le projet GCP de Fidély et bloque de toute façon la création de clés JSON classiques ; WIF est aussi la méthode recommandée par Google pour les workloads externes (jetons de courte durée, rien à faire fuiter).
 
-Une fois `GOOGLE_WALLET_ISSUER_ID` et `GOOGLE_WALLET_SERVICE_ACCOUNT_JSON` renseignés, le bouton "Ajouter à Google Wallet" apparaît automatiquement, et les mises à jour de points déclenchent une notification native sur Android.
+1. **Projet Google Cloud** : créez ou sélectionnez un projet sur [console.cloud.google.com](https://console.cloud.google.com), activez `walletobjects.googleapis.com`, `iam.googleapis.com`, `iamcredentials.googleapis.com`, `sts.googleapis.com`.
+2. **Compte Google Wallet Business Console** : inscrivez-vous sur [Google Wallet Business Console](https://pay.google.com/business/console/) pour obtenir votre **Issuer ID** → `GOOGLE_WALLET_ISSUER_ID`. Le compte reste en mode Test (10 testeurs max) tant que Google n'a pas validé une demande de publication — prévoyez ce délai avant l'ouverture publique.
+3. **Vercel** : dans le projet → Settings → Security → "Secure backend access with OIDC federation" → activer en mode **Team**, sauvegarder.
+4. **Workload Identity Pool + provider OIDC** (Google Cloud Console → IAM & Admin → Workload Identity Federation, ou via `gcloud`) :
+   - Pool `vercel`, provider OIDC `vercel`, issuer `https://oidc.vercel.com/[TEAM_SLUG]`, attribute mapping `google.subject = assertion.sub`, audience par défaut.
+5. **Compte de service** (sans clé) : IAM & Admin → Comptes de service → créez-en un (ex. `fidely-wallet-issuer`) → `GCP_SERVICE_ACCOUNT_EMAIL`.
+6. Accordez `roles/iam.serviceAccountTokenCreator` sur ce compte de service à :
+   - chaque principal WIF `principal://iam.googleapis.com/projects/{GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/vercel/subject/owner:{TEAM}:project:{PROJECT}:environment:{production|development}` (un par environnement Vercel à autoriser),
+   - et au compte de service lui-même (auto-impersonation, nécessaire pour signer le JWT du lien "Save to Wallet" via l'API IAM Credentials plutôt qu'avec une clé locale).
+7. Dans le Wallet Business Console → Utilisateurs, ajoutez l'email du compte de service avec le rôle "Wallet Object Issuer".
+8. En local, `vercel link` puis `vercel env pull` récupère automatiquement `VERCEL_OIDC_TOKEN` dans `.env.local` (ne pas le définir manuellement — Vercel l'injecte aussi automatiquement en prod).
+
+Une fois `GOOGLE_WALLET_ISSUER_ID`, `GCP_PROJECT_NUMBER`, `GCP_WORKLOAD_IDENTITY_POOL_ID`, `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` et `GCP_SERVICE_ACCOUNT_EMAIL` renseignés, le bouton "Ajouter à Google Wallet" apparaît automatiquement, et les mises à jour de points déclenchent une notification native sur Android.
 
 ## Notes
 

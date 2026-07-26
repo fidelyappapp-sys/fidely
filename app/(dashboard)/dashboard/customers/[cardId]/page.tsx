@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireMerchantContext } from "@/lib/merchant";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export default async function CustomerCardPage({
   params,
@@ -10,7 +10,9 @@ export default async function CustomerCardPage({
 }) {
   const { cardId } = await params;
   const merchant = await requireMerchantContext();
-  const supabase = await createServerSupabaseClient();
+  // customers has no RLS policies by design (server-side only) — see
+  // dashboard/customers/page.tsx for the same fix and rationale.
+  const supabase = createServiceRoleClient();
 
   const { data: card } = await supabase
     .from("loyalty_cards")

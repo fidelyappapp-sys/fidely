@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { requireMerchantContext } from "@/lib/merchant";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export default async function CustomersPage() {
   const merchant = await requireMerchantContext();
-  const supabase = await createServerSupabaseClient();
+  // customers has no RLS policies by design (server-side only) — the RLS
+  // client's embedded `customers(...)` join silently returns null, so this
+  // page needs the service-role client. merchant_id scoping below (already
+  // authorized via requireMerchantContext) keeps this tenant-scoped.
+  const supabase = createServiceRoleClient();
 
   const { data: cards } = await supabase
     .from("loyalty_cards")

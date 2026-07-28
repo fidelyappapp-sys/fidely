@@ -16,6 +16,11 @@ export default async function CustomersPage() {
     .eq("merchant_id", merchant.merchantId)
     .order("created_at", { ascending: false });
 
+  const topCustomers = [...(cards ?? [])]
+    .filter((card) => card.points > 0)
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 5);
+
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -27,6 +32,32 @@ export default async function CustomersPage() {
           Page d&apos;inscription →
         </Link>
       </div>
+
+      {topCustomers.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-sm font-semibold tracking-wide text-gray-500 uppercase">
+            Meilleurs clients
+          </h2>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {topCustomers.map((card, i) => {
+              const customer = card.customers as unknown as { full_name: string | null } | null;
+              return (
+                <Link
+                  key={card.id}
+                  href={`/dashboard/customers/${card.id}`}
+                  className="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 hover:bg-gray-50"
+                >
+                  <span className="flex items-center gap-2 truncate text-sm font-medium text-gray-900">
+                    <span className="text-gray-400">#{i + 1}</span>
+                    <span className="truncate">{customer?.full_name || "Client sans nom"}</span>
+                  </span>
+                  <span className="shrink-0 text-sm text-gray-500">{card.points} pts</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 overflow-hidden rounded-2xl border border-gray-100">
         <table className="w-full text-left text-sm">

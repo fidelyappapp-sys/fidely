@@ -96,6 +96,7 @@ export async function getMerchantsList(db: Db): Promise<AdminMerchantRow[]> {
 export interface PendingKitOrder {
   id: string;
   businessName: string;
+  slug: string;
   createdAt: string;
   deliveryMethod: string | null;
   shippingAddress: unknown;
@@ -104,13 +105,14 @@ export interface PendingKitOrder {
 export async function getPendingKitOrders(db: Db): Promise<PendingKitOrder[]> {
   const { data } = await db
     .from("merchants")
-    .select("id, business_name, created_at, kit_delivery_method, kit_shipping_address, kit_delivery_status")
+    .select("id, business_name, slug, created_at, kit_delivery_method, kit_shipping_address, kit_delivery_status")
     .in("kit_delivery_status", ["pending", "processing"])
     .order("created_at", { ascending: true });
 
   return (data ?? []).map((m) => ({
     id: m.id,
     businessName: m.business_name,
+    slug: m.slug,
     createdAt: m.created_at,
     deliveryMethod: m.kit_delivery_method,
     shippingAddress: m.kit_shipping_address,
@@ -207,4 +209,79 @@ export async function getAdminAlerts(db: Db): Promise<AdminAlerts> {
       pauseEndsAt: m.subscription_pause_ends_at as string,
     })),
   };
+}
+
+export async function getNewSignupsThisMonth(db: Db): Promise<number> {
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const { count } = await db
+    .from("merchants")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", startOfMonth.toISOString());
+
+  return count ?? 0;
+}
+
+export interface AdminAuditLogRow {
+  id: string;
+  adminEmail: string | null;
+  action: string;
+  targetMerchantId: string | null;
+  targetBusinessName: string | null;
+  createdAt: string;
+}
+
+// Best-effort email lookup per row via the admin API — fine at this scale
+// (a handful of admins, infrequent log views); would need a join/cache if
+// the admin roster grows much larger.
+export async function getAdminAuditLog(db: Db, merchantId?: string): Promise<AdminAuditLogRow[]> {
+  let query = db
+    .from("admin_audit_log")
+    .select("id, admin_auth_user_id, action, target_merchant_id, created_at, merchants(business_name)")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (merchantId) query = query.eq("target_merchant_id", merchantId);
+
+  const { data } = await query;
+  if (!data || data.length === 0) return [];
+
+  const uniqueAdminIds = [...new Set(data.map((row) => row.admin_auth_user_id))];
+  const emailById = new Map<string, string | null>();
+  await Promise.all(
+    uniqueAdminIds.map(async (id) => {
+      const { data: userResult } = await db.auth.admin.getUserById(id);
+      emailById.set(id, userResult.user?.email ?? null);
+    })
+  );
+
+  return data.map((row) => ({
+    id: row.id,
+    adminEmail: emailById.get(row.admin_auth_user_id) ?? null,
+    action: row.action,
+    targetMerchantId: row.target_merchant_id,
+    targetBusinessName: (row.merchants as unknown as { business_name: string } | null)?.business_name ?? null,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function getShopOrdersForMerchant(db: Db, merchantId: string): Promise<AdminShopOrder[]> {
+  const { data } = await db
+    .from("shop_orders")
+    .select("id, merchant_id, items, amount_cents, status, delivery_method, shipping_address, created_at, merchants(business_name)")
+    .eq("merchant_id", merchantId)
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    businessName: (row.merchants as unknown as { business_name: string } | null)?.business_name ?? "?",
+    items: row.items as ShopOrderItem[],
+    amountCents: row.amount_cents,
+    status: row.status,
+    deliveryMethod: row.delivery_method,
+    shippingAddress: row.shipping_address as KitShippingAddress | null,
+    createdAt: row.created_at,
+  }));
 }

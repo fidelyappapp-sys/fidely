@@ -66,6 +66,19 @@ export async function POST(request: Request) {
     if (existingCustomer) customerId = existingCustomer.id;
   }
 
+  // Email is optional, so customers who sign up without one (or with a
+  // different email each time) must still be matched by phone — otherwise
+  // every join creates a fresh "unnamed" duplicate instead of reusing the
+  // existing record.
+  if (!customerId && phone) {
+    const { data: existingByPhone } = await db
+      .from("customers")
+      .select("id")
+      .eq("phone", phone)
+      .maybeSingle();
+    if (existingByPhone) customerId = existingByPhone.id;
+  }
+
   if (!customerId) {
     const { data: newCustomer, error: customerError } = await db
       .from("customers")

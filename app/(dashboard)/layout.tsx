@@ -4,6 +4,7 @@ import { signOut } from "@/lib/actions/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getKitDeliveryInfo } from "@/lib/kitDeliveryData";
 import { MerchantSwitcher } from "@/components/dashboard/MerchantSwitcher";
+import { SubscriptionGate } from "@/components/dashboard/SubscriptionGate";
 import { MobileNav } from "@/components/MobileNav";
 
 const navItems = [
@@ -73,12 +74,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 Abonnement en pause
               </Link>
             )}
-            {merchant.subscriptionStatus !== "active" && merchant.subscriptionStatus !== "paused" && (
+            {merchant.subscriptionStatus !== "active" &&
+              merchant.subscriptionStatus !== "paused" &&
+              merchant.subscriptionStatus !== "past_due" && (
+                <Link
+                  href="/dashboard/billing"
+                  className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700"
+                >
+                  Facturation à finaliser
+                </Link>
+              )}
+            {merchant.subscriptionStatus === "past_due" && (
               <Link
                 href="/dashboard/billing"
-                className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700"
+                className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700"
               >
-                Facturation à finaliser
+                Abonnement suspendu — paiement échoué
               </Link>
             )}
             {showKitBanner && (
@@ -91,7 +102,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
             )}
           </div>
         </header>
-        <main className="p-6 sm:p-8">{children}</main>
+        <main className="flex flex-1 flex-col p-6 sm:p-8">
+          <SubscriptionGate subscriptionStatus={merchant.subscriptionStatus}>
+            {children}
+          </SubscriptionGate>
+        </main>
       </div>
     </div>
   );

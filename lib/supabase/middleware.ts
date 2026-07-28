@@ -2,6 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "./types";
 
+// Must match lib/supabase/client.ts and lib/supabase/server.ts.
+const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 90;
+
 // Refreshes the Supabase auth session on every request so Server Components
 // always see a valid (non-expired) session. Must run in middleware.ts.
 export async function updateSession(request: NextRequest) {
@@ -11,6 +14,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: { maxAge: SESSION_COOKIE_MAX_AGE },
       cookies: {
         getAll() {
           return request.cookies.getAll();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { updateProgram, type ProgramActionState } from "@/lib/actions/program";
 
 const initialState: ProgramActionState = {};
@@ -10,15 +10,21 @@ export function ProgramForm({
 }: {
   program: {
     name: string;
+    display_mode: "stamps" | "points";
     points_per_scan: number;
+    stamp_count: number;
+    points_per_euro: number | null;
     reward_threshold: number;
     reward_description: string;
   };
 }) {
   const [state, formAction, pending] = useActionState(updateProgram, initialState);
+  const [displayMode, setDisplayMode] = useState<"stamps" | "points">(program.display_mode);
 
   return (
     <form action={formAction} className="max-w-md space-y-5">
+      <input type="hidden" name="displayMode" value={displayMode} />
+
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">
           Nom du programme
@@ -32,35 +38,98 @@ export function ProgramForm({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div>
+        <p className="text-sm font-medium text-gray-700">Mode de fidélité</p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setDisplayMode("stamps")}
+            className={`rounded-xl border p-3 text-left text-sm transition ${
+              displayMode === "stamps" ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
+            }`}
+          >
+            <p className="font-medium text-gray-900">Tampons</p>
+            <p className="mt-0.5 text-xs text-gray-500">1 à 20 tampons, 2 rangées de 5.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setDisplayMode("points")}
+            className={`rounded-xl border p-3 text-left text-sm transition ${
+              displayMode === "points" ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
+            }`}
+          >
+            <p className="font-medium text-gray-900">Points cumulés</p>
+            <p className="mt-0.5 text-xs text-gray-500">Conversion € → points au scan.</p>
+          </button>
+        </div>
+      </div>
+
+      {displayMode === "stamps" ? (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="pointsPerScan" className="block text-sm font-medium text-gray-700">
+              Tampons / scan
+            </label>
+            <input
+              id="pointsPerScan"
+              name="pointsPerScan"
+              type="number"
+              min={1}
+              required
+              defaultValue={program.points_per_scan}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor="stampCount" className="block text-sm font-medium text-gray-700">
+              Nombre de tampons
+            </label>
+            <input
+              id="stampCount"
+              name="stampCount"
+              type="number"
+              min={1}
+              max={20}
+              required
+              defaultValue={program.stamp_count}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
+            />
+          </div>
+        </div>
+      ) : (
         <div>
-          <label htmlFor="pointsPerScan" className="block text-sm font-medium text-gray-700">
-            Points / scan
+          <label htmlFor="pointsPerEuro" className="block text-sm font-medium text-gray-700">
+            Points par euro dépensé
           </label>
           <input
-            id="pointsPerScan"
-            name="pointsPerScan"
+            id="pointsPerEuro"
+            name="pointsPerEuro"
             type="number"
-            min={1}
+            min={0.01}
+            step="0.01"
             required
-            defaultValue={program.points_per_scan}
+            defaultValue={program.points_per_euro ?? 1}
             className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
           />
+          <p className="mt-1 text-xs text-gray-500">
+            Ex. 2 = 1€ dépensé rapporte 2 points. Le montant est saisi par l&apos;employé au scan.
+          </p>
         </div>
-        <div>
-          <label htmlFor="rewardThreshold" className="block text-sm font-medium text-gray-700">
-            Seuil de récompense
-          </label>
-          <input
-            id="rewardThreshold"
-            name="rewardThreshold"
-            type="number"
-            min={1}
-            required
-            defaultValue={program.reward_threshold}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
-          />
-        </div>
+      )}
+
+      <div>
+        <label htmlFor="rewardThreshold" className="block text-sm font-medium text-gray-700">
+          Seuil de récompense {displayMode === "points" ? "(en points)" : "(en tampons)"}
+        </label>
+        <input
+          id="rewardThreshold"
+          name="rewardThreshold"
+          type="number"
+          min={1}
+          required
+          defaultValue={program.reward_threshold}
+          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
+        />
       </div>
 
       <div>

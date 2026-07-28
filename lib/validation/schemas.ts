@@ -18,12 +18,23 @@ export const onboardingSchema = z.object({
   rewardDescription: z.string().trim().min(2).max(200),
 });
 
-export const programUpdateSchema = z.object({
-  name: z.string().trim().min(2).max(120),
-  pointsPerScan: z.coerce.number().int().min(1).max(100),
-  rewardThreshold: z.coerce.number().int().min(1).max(1000),
-  rewardDescription: z.string().trim().min(2).max(200),
-});
+export const programUpdateSchema = z.discriminatedUnion("displayMode", [
+  z.object({
+    displayMode: z.literal("stamps"),
+    name: z.string().trim().min(2).max(120),
+    pointsPerScan: z.coerce.number().int().min(1).max(100),
+    stampCount: z.coerce.number().int().min(1).max(20),
+    rewardThreshold: z.coerce.number().int().min(1).max(1000),
+    rewardDescription: z.string().trim().min(2).max(200),
+  }),
+  z.object({
+    displayMode: z.literal("points"),
+    name: z.string().trim().min(2).max(120),
+    pointsPerEuro: z.coerce.number().positive().max(1000),
+    rewardThreshold: z.coerce.number().int().min(1).max(100_000),
+    rewardDescription: z.string().trim().min(2).max(200),
+  }),
+]);
 
 export const joinSchema = z.object({
   merchantSlug: z.string().trim().min(1),
@@ -40,6 +51,9 @@ export const joinSchema = z.object({
 
 export const scanSchema = z.object({
   payload: z.string().trim().min(3),
+  // Only meaningful in "points" display mode — the purchase amount staff
+  // enter so award_scan_points can apply the merchant's €→points ratio.
+  amountCents: z.coerce.number().int().min(0).max(10_000_000).optional(),
 });
 
 export const adjustPointsSchema = z.object({
@@ -92,6 +106,28 @@ export const menuItemSchema = z.object({
 export const cardCustomizationSchema = z.object({
   brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur hexadécimale invalide"),
   stampStyle: z.enum(["star", "square", "triangle", "heart", "butterfly", "circle", "diamond"]),
+  sector: z
+    .enum([
+      "restaurant",
+      "food_truck",
+      "bar",
+      "hairdresser",
+      "cafe",
+      "bakery",
+      "beauty_spa",
+      "gym",
+      "dry_cleaning",
+      "garage",
+      "florist",
+      "bookstore",
+      "pet_shop",
+      "pharmacy",
+      "cinema",
+    ])
+    .optional()
+    .or(z.literal("")),
+  backgroundPhotoEnabled: z.coerce.boolean().optional(),
+  nameDisplayMode: z.enum(["text", "logo"]).default("text"),
 });
 
 export const employeeSchema = z.object({

@@ -11,12 +11,16 @@ export default async function ProgramPage() {
   const [{ data: program }, { data: merchantRow }] = await Promise.all([
     supabase
       .from("loyalty_programs")
-      .select("name, points_per_scan, reward_threshold, reward_description")
+      .select(
+        "name, display_mode, points_per_scan, stamp_count, points_per_euro, reward_threshold, reward_description"
+      )
       .eq("merchant_id", merchant.merchantId)
       .single(),
     supabase
       .from("merchants")
-      .select("brand_color, stamp_style")
+      .select(
+        "brand_color, stamp_style, sector, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
+      )
       .eq("id", merchant.merchantId)
       .single(),
   ]);
@@ -54,9 +58,15 @@ export default async function ProgramPage() {
         <div className="mt-8">
           <CardCustomizer
             businessName={merchant.businessName}
-            rewardThreshold={program.reward_threshold}
+            displayMode={program.display_mode}
+            stampCount={program.stamp_count}
             initialColor={merchantRow?.brand_color ?? merchant.brandColor}
             initialStampStyle={merchantRow?.stamp_style ?? "circle"}
+            initialSector={merchantRow?.sector ?? null}
+            initialLogoUrl={merchantRow?.logo_url ?? merchant.logoUrl}
+            initialBackgroundPhotoUrl={merchantRow?.background_photo_url ?? null}
+            initialBackgroundPhotoEnabled={merchantRow?.background_photo_enabled ?? false}
+            initialNameDisplayMode={merchantRow?.name_display_mode ?? "text"}
           />
         </div>
       </div>

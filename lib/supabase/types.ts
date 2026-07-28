@@ -13,6 +13,23 @@ export type StampStyle =
   | "circle"
   | "diamond";
 
+export type SectorKey =
+  | "restaurant"
+  | "food_truck"
+  | "bar"
+  | "hairdresser"
+  | "cafe"
+  | "bakery"
+  | "beauty_spa"
+  | "gym"
+  | "dry_cleaning"
+  | "garage"
+  | "florist"
+  | "bookstore"
+  | "pet_shop"
+  | "pharmacy"
+  | "cinema";
+
 export type PushStatus = "skipped" | "sent" | "failed";
 
 export type WeekDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -79,6 +96,10 @@ export interface Database {
           kit_payment_intent_id: string | null;
           stamp_style: StampStyle;
           business_type: string | null;
+          background_photo_url: string | null;
+          background_photo_enabled: boolean;
+          sector: SectorKey | null;
+          name_display_mode: "text" | "logo";
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["merchants"]["Row"]> & {
@@ -194,7 +215,10 @@ export interface Database {
           id: string;
           merchant_id: string;
           name: string;
+          display_mode: "stamps" | "points";
           points_per_scan: number;
+          stamp_count: number;
+          points_per_euro: number | null;
           reward_threshold: number;
           reward_description: string;
           created_at: string;
@@ -495,6 +519,72 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "shop_orders_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      platform_admins: {
+        Row: {
+          auth_user_id: string;
+          created_at: string;
+        };
+        Insert: { auth_user_id: string };
+        Update: Partial<Database["public"]["Tables"]["platform_admins"]["Row"]>;
+        Relationships: [];
+      };
+      admin_audit_log: {
+        Row: {
+          id: string;
+          admin_auth_user_id: string;
+          action: string;
+          target_merchant_id: string | null;
+          metadata: Record<string, unknown> | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["admin_audit_log"]["Row"]> & {
+          admin_auth_user_id: string;
+          action: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["admin_audit_log"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_target_merchant_id_fkey";
+            columns: ["target_merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      invoices: {
+        Row: {
+          id: string;
+          merchant_id: string;
+          stripe_invoice_id: string;
+          amount_cents: number;
+          currency: string;
+          status: string;
+          hosted_invoice_url: string | null;
+          period_start: string | null;
+          period_end: string | null;
+          format: "stripe_hosted" | "facturx" | "ubl";
+          plateforme_agreee: string | null;
+          statut_transmission: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["invoices"]["Row"]> & {
+          merchant_id: string;
+          stripe_invoice_id: string;
+          amount_cents: number;
+          status: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["invoices"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "invoices_merchant_id_fkey";
             columns: ["merchant_id"];
             isOneToOne: false;
             referencedRelation: "merchants";

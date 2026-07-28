@@ -8,7 +8,11 @@ import { SignJWT, jwtVerify } from "jose";
 // (POST /api/scan, POST /api/cards/points — both service-role, no RLS
 // dependency), never a full authenticated dashboard session.
 export const STAFF_SCAN_COOKIE = "fidely_staff_scan";
-const SESSION_TTL_SECONDS = 12 * 60 * 60; // one shift
+// A shop tablet shouldn't need re-authenticating every shift — 60 days, with
+// the live `active` check in getStaffContextOrNull() (lib/merchant.ts) as
+// the real revocation mechanism: removing a staff member blocks their scans
+// immediately regardless of how much of this TTL is left.
+export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 60;
 
 // Reuses QR_SIGNING_SECRET (already a required env var for customer QR
 // HMACs) rather than introducing a second mandatory secret — the "aud"

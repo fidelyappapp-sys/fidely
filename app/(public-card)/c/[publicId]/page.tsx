@@ -27,12 +27,12 @@ export default async function PublicCardPage({
   const db = createServiceRoleClient();
 
   // Only columns guaranteed to exist since 0001_init.sql — the customer
-  // card must keep resolving regardless of whether the card-customization
-  // migration (stamp_style) has landed on this database yet.
+  // card must keep resolving regardless of whether later migrations
+  // (stamp_style, background photo, ...) have landed on this database yet.
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      "points, merchant_id, pass_serial_number, merchants(business_name, brand_color, logo_url, subscription_status), loyalty_programs(reward_threshold, reward_description)"
+      "points, merchant_id, pass_serial_number, created_at, customers(full_name, phone), merchants(business_name, brand_color, logo_url, subscription_status), loyalty_programs(display_mode, stamp_count, reward_threshold, reward_description)"
     )
     .eq("public_id", publicId)
     .maybeSingle();
@@ -45,64 +45,43 @@ export default async function PublicCardPage({
     logo_url: string | null;
     subscription_status: string;
   } | null;
+  const customer = card.customers as unknown as { full_name: string | null; phone: string | null } | null;
   const isPaused = merchant?.subscription_status === "paused";
   const program = card.loyalty_programs as unknown as {
+    display_mode: "stamps" | "points";
+    stamp_count: number;
     reward_threshold: number;
     reward_description: string;
   } | null;
 
-  const [qrDataUrl, extras, menuItems, galleryPhotos, stampStyleRow] = await Promise.all([
+  const [qrDataUrl, extras, menuItems, galleryPhotos, customizationRow] = await Promise.all([
     qrCodeDataUrl(publicId),
     getMerchantPageExtras(db, card.merchant_id),
     getMerchantMenuItems(db, card.merchant_id),
     getMerchantGalleryPhotos(db, card.merchant_id),
-    db.from("merchants").select("stamp_style").eq("id", card.merchant_id).maybeSingle(),
+    db
+      .from("merchants")
+      .select("stamp_style, background_photo_url, background_photo_enabled, name_display_mode")
+      .eq("id", card.merchant_id)
+      .maybeSingle(),
   ]);
 
-  const stampStyle: StampStyle = (stampStyleRow.data?.stamp_style as StampStyle | undefined) ?? "circle";
+  const stampStyle: StampStyle = (customizationRow.data?.stamp_style as StampStyle | undefined) ?? "circle";
+  const useBackgroundPhoto = Boolean(
+    customizationRow.data?.background_photo_enabled && customizationRow.data?.background_photo_url
+  );
+  const showLogoAsName = customizationRow.data?.name_display_mode === "logo" && Boolean(merchant?.logo_url);
 
   const brandColor = merchant?.brand_color ?? "#111827";
+  const memberSince = new Date(card.created_at).toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
   return (
     <div className="min-h-full bg-gray-50 pb-16">
-      {/* Cover / identity */}
-      <div
-        className="relative overflow-hidden px-6 pt-12 pb-20 text-white"
-        style={{ backgroundColor: brandColor }}
-      >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_-10%,_rgba(255,255,255,0.18),_transparent_55%)]"
-        />
-        <div
-          aria-hidden
-          className="animate-drift pointer-events-none absolute -top-24 right-[-6rem] h-72 w-72 rounded-full bg-white/10 blur-3xl"
-        />
-        <div className="relative mx-auto max-w-md text-center">
-          {merchant?.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={merchant.logo_url}
-              alt={merchant.business_name}
-              className="mx-auto h-16 w-16 rounded-2xl object-cover shadow-lg ring-2 ring-white/30"
-            />
-          ) : (
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold shadow-lg ring-2 ring-white/30">
-              {merchant?.business_name?.[0]?.toUpperCase() ?? "F"}
-            </div>
-          )}
-          <h1 className="mt-4 text-2xl font-bold tracking-tight">{merchant?.business_name}</h1>
-          {extras.address && <p className="mt-1 text-sm text-white/70">{extras.address}</p>}
-          {extras.openingHours.length > 0 && (
-            <div className="mt-3">
-              <OpenBadge hours={extras.openingHours} />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Points card, floating over the cover — replaced by a closed notice while paused */}
-      <div className="relative mx-auto -mt-12 w-full max-w-md px-6">
+      <div className="mx-auto max-w-md px-6 pt-10">
         {isPaused ? (
           <div className="rounded-3xl bg-white p-6 text-center shadow-xl shadow-black/10">
             <p className="text-lg font-semibold text-gray-900">Commerce temporairement fermé</p>
@@ -112,27 +91,106 @@ export default async function PublicCardPage({
           </div>
         ) : (
           <>
+            {/* The membership card: logo + join date on top, name/points in the
+                middle over the photo or solid brand color, phone/customer name
+                at the bottom, QR code centered underneath. */}
             <div
-              className="rounded-3xl p-6 text-center text-white shadow-xl shadow-black/10"
-              style={{ backgroundColor: brandColor }}
+              className="relative overflow-hidden rounded-[28px] text-white shadow-xl shadow-black/10"
+              style={
+                useBackgroundPhoto
+                  ? {
+                      backgroundImage: `url(${customizationRow.data!.background_photo_url})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }
+                  : { backgroundColor: brandColor }
+              }
             >
-              <CardPoints
-                publicId={publicId}
-                stampStyle={stampStyle}
-                initial={{
-                  points: card.points,
-                  rewardThreshold: program?.reward_threshold ?? 0,
-                  rewardDescription: program?.reward_description ?? "",
-                }}
-              />
+              {useBackgroundPhoto && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-black/45 to-black/80"
+                />
+              )}
+              {!useBackgroundPhoto && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_-10%,_rgba(255,255,255,0.18),_transparent_55%)]"
+                />
+              )}
 
-              <div className="mx-auto mt-6 flex w-fit items-center justify-center rounded-2xl bg-white p-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qrDataUrl} alt="QR code de fidélité" width={180} height={180} />
+              <div className="relative p-6">
+                <div className="flex items-center justify-between">
+                  {merchant?.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={merchant.logo_url}
+                      alt={merchant.business_name}
+                      className="h-12 w-12 rounded-xl object-cover shadow-lg ring-2 ring-white/30"
+                    />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 text-lg font-bold shadow-lg ring-2 ring-white/30">
+                      {merchant?.business_name?.[0]?.toUpperCase() ?? "F"}
+                    </div>
+                  )}
+                  <span className="font-serif text-xs tracking-wide text-white/70">
+                    Membre depuis {memberSince}
+                  </span>
+                </div>
+
+                <div className="mt-6 text-center">
+                  {showLogoAsName ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={merchant!.logo_url!}
+                      alt={merchant?.business_name}
+                      className="mx-auto h-14 max-w-[70%] object-contain"
+                    />
+                  ) : (
+                    <h1 className="font-serif text-2xl font-semibold tracking-tight">
+                      {merchant?.business_name}
+                    </h1>
+                  )}
+                  {extras.openingHours.length > 0 && (
+                    <div className="mt-3 flex justify-center">
+                      <OpenBadge hours={extras.openingHours} />
+                    </div>
+                  )}
+
+                  <div className="mt-6">
+                    <CardPoints
+                      publicId={publicId}
+                      stampStyle={stampStyle}
+                      initial={{
+                        points: card.points,
+                        displayMode: program?.display_mode ?? "stamps",
+                        stampCount: program?.stamp_count ?? 10,
+                        rewardThreshold: program?.reward_threshold ?? 0,
+                        rewardDescription: program?.reward_description ?? "",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-8 flex items-end justify-between">
+                  <div>
+                    <p className="text-[10px] tracking-wide text-white/60 uppercase">Téléphone</p>
+                    <p className="text-sm font-medium">{customer?.phone || "—"}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] tracking-wide text-white/60 uppercase">Client</p>
+                    <p className="font-serif text-sm font-medium">{customer?.full_name || "—"}</p>
+                  </div>
+                </div>
+
+                <div className="mx-auto mt-5 flex w-fit items-center justify-center rounded-2xl bg-white p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={qrDataUrl} alt="QR code de fidélité" width={180} height={180} />
+                </div>
+                <p className="mt-3 text-center text-xs opacity-80">
+                  Présentez ce QR code en caisse pour cumuler des points.
+                </p>
               </div>
-              <p className="mt-3 text-xs opacity-80">
-                Présentez ce QR code en caisse pour cumuler des points.
-              </p>
             </div>
 
             <div className="mt-4">

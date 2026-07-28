@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { STAFF_SCAN_COOKIE, signStaffScanSession } from "@/lib/staffScanAuth";
+import { STAFF_SCAN_COOKIE, SESSION_TTL_SECONDS, signStaffScanSession } from "@/lib/staffScanAuth";
 import { appBaseUrl } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -38,7 +38,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 12 * 60 * 60,
+    maxAge: SESSION_TTL_SECONDS,
   });
   return response;
 }

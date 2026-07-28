@@ -24,18 +24,18 @@ export async function POST() {
     email: user?.email ?? null,
   });
 
-  // Every line item on this price is usage_type: "metered" (see
-  // scripts/stripe-setup.ts) — Stripe never invoices a metered-only
-  // subscription at creation time, only at the end of its first billing
-  // cycle (30 days, per that price's interval). So "card saved now, first
-  // charge 30 days later" falls out of this on its own; no
-  // trial_period_days/billing_cycle_anchor needed. That stops being true
-  // the day a non-metered (flat) line item is added to this Checkout
-  // Session — that combination *does* invoice immediately.
+  // Every line item on the metered price only invoices at the end of its
+  // first billing cycle (30 days) — a Checkout Session in "subscription"
+  // mode would save the card without ever actually verifying it's valid
+  // and chargeable until that first invoice, a month later. Using "setup"
+  // mode instead runs a real (non-charging) SetupIntent verification up
+  // front; the webhook then creates the actual subscription once that
+  // verification succeeds (see activateSubscriptionFromSetup).
   const session = await stripe().checkout.sessions.create({
-    mode: "subscription",
+    mode: "setup",
     customer: customerId,
-    line_items: [{ price: process.env.STRIPE_METERED_PRICE_ID! }],
+    payment_method_types: ["card"],
+    metadata: { type: "merchant_subscription_setup", merchant_id: merchant.merchantId },
     success_url: `${appBaseUrl()}/dashboard/billing?checkout=success`,
     cancel_url: `${appBaseUrl()}/dashboard/billing?checkout=cancelled`,
   });

@@ -42,7 +42,7 @@ function playBeep() {
   }
 }
 
-export function Scanner() {
+export function Scanner({ displayMode = "stamps" }: { displayMode?: "stamps" | "points" }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
   const busyRef = useRef(false);
@@ -50,14 +50,18 @@ export function Scanner() {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [adjusting, setAdjusting] = useState(false);
   const [flash, setFlash] = useState(false);
+  // "points" mode needs a purchase amount before we can award anything —
+  // holds the decoded QR text while the employee enters it.
+  const [pendingPayload, setPendingPayload] = useState<string | null>(null);
+  const [amountInput, setAmountInput] = useState("");
 
-  const handleDecoded = useCallback(async (payload: string) => {
+  const handleDecoded = useCallback(async (payload: string, amountCents?: number) => {
     busyRef.current = true;
     try {
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payload }),
+        body: JSON.stringify({ payload, ...(amountCents !== undefined ? { amountCents } : {}) }),
       });
       const data = await res.json();
 
@@ -123,29 +127,80 @@ export function Scanner() {
     const codeReader = new BrowserQRCodeReader();
     let cancelled = false;
 
-    codeReader
-      .decodeFromVideoDevice(undefined, videoRef.current!, (scanResult) => {
-        if (cancelled || !scanResult || busyRef.current) return;
-        void handleDecoded(scanResult.getText());
-      })
-      .then((controls) => {
+    const onDecoded = (scanResult: { getText: () => string } | undefined) => {
+      if (cancelled || !scanResult || busyRef.current) return;
+      const text = scanResult.getText();
+      if (displayMode === "points") {
+        // Pause scanning until the employee confirms (or cancels) the
+        // purchase amount — see the amount-entry form below.
+        busyRef.current = true;
+        setPendingPayload(text);
+      } else {
+        void handleDecoded(text);
+      }
+    };
+
+    const start = async () => {
+      try {
+        // Prefer the rear camera — on mobile, letting the browser pick a
+        // default device (decodeFromVideoDevice(undefined, ...)) often
+        // opens the front-facing camera, making it impossible to scan a
+        // customer's QR code held facing the phone.
+        const controls = await codeReader.decodeFromConstraints(
+          { video: { facingMode: { ideal: "environment" } } },
+          videoRef.current!,
+          onDecoded
+        );
         if (cancelled) {
           controls.stop();
         } else {
           controlsRef.current = controls;
         }
-      })
-      .catch((err) => {
-        setCameraError(
-          err instanceof Error ? err.message : "Impossible d'accéder à la caméra."
-        );
-      });
+      } catch {
+        // Constraint unsupported (e.g. desktop with no rear camera) —
+        // fall back to letting the browser choose a device.
+        try {
+          const controls = await codeReader.decodeFromVideoDevice(
+            undefined,
+            videoRef.current!,
+            onDecoded
+          );
+          if (cancelled) {
+            controls.stop();
+          } else {
+            controlsRef.current = controls;
+          }
+        } catch (err) {
+          setCameraError(
+            err instanceof Error ? err.message : "Impossible d'accéder à la caméra."
+          );
+        }
+      }
+    };
+
+    void start();
 
     return () => {
       cancelled = true;
       controlsRef.current?.stop();
     };
-  }, [handleDecoded]);
+  }, [handleDecoded, displayMode]);
+
+  const confirmAmount = useCallback(() => {
+    if (!pendingPayload) return;
+    const euros = parseFloat(amountInput.replace(",", "."));
+    const amountCents = Number.isFinite(euros) && euros >= 0 ? Math.round(euros * 100) : 0;
+    const payload = pendingPayload;
+    setPendingPayload(null);
+    setAmountInput("");
+    void handleDecoded(payload, amountCents);
+  }, [pendingPayload, amountInput, handleDecoded]);
+
+  const cancelAmount = useCallback(() => {
+    setPendingPayload(null);
+    setAmountInput("");
+    busyRef.current = false;
+  }, []);
 
   return (
     <div className="max-w-md">
@@ -168,6 +223,45 @@ export function Scanner() {
         <p className="mt-4 text-sm text-red-600">
           {cameraError} Vérifiez que l&apos;accès à la caméra est autorisé pour ce site.
         </p>
+      )}
+
+      {pendingPayload && (
+        <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+          <label htmlFor="scanAmount" className="block text-sm font-medium text-indigo-900">
+            Montant de l&apos;achat (€)
+          </label>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              id="scanAmount"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              autoFocus
+              value={amountInput}
+              onChange={(event) => setAmountInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") confirmAmount();
+              }}
+              className="w-full rounded-lg border border-indigo-300 px-3 py-2 text-sm focus:border-indigo-600 focus:outline-none"
+              placeholder="0.00"
+            />
+            <button
+              type="button"
+              onClick={confirmAmount}
+              className="shrink-0 rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+            >
+              Valider
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={cancelAmount}
+            className="mt-2 text-xs text-indigo-700 hover:underline"
+          >
+            Annuler
+          </button>
+        </div>
       )}
 
       {result?.status === "success" && result.rewardClaimed && (

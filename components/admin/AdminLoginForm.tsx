@@ -13,6 +13,20 @@ export function AdminLoginForm() {
       <h1 className="text-xl font-semibold">Administration</h1>
 
       <div>
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          Email
+        </label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          autoFocus
+          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
+        />
+      </div>
+
+      <div>
         <label htmlFor="password" className="block text-sm font-medium text-gray-700">
           Mot de passe
         </label>
@@ -21,7 +35,6 @@ export function AdminLoginForm() {
           name="password"
           type="password"
           required
-          autoFocus
           className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
         />
       </div>

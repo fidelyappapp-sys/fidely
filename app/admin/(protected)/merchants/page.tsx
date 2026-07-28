@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getMerchantsList } from "@/lib/admin";
 
@@ -24,7 +25,11 @@ export default async function AdminMerchantsPage() {
           <tbody>
             {merchants.map((m) => (
               <tr key={m.id} className="border-b border-gray-50 last:border-0">
-                <td className="px-4 py-3">{m.businessName}</td>
+                <td className="px-4 py-3">
+                  <Link href={`/admin/merchants/${m.id}`} className="font-medium text-indigo-600 hover:text-indigo-500">
+                    {m.businessName}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 capitalize">{m.subscriptionStatus}</td>
                 <td className="px-4 py-3">{new Date(m.createdAt).toLocaleDateString("fr-FR")}</td>
                 <td className="px-4 py-3">{m.scanCount}</td>

@@ -17,8 +17,11 @@ export async function updateProgram(
   const merchant = await requireMerchantContext();
 
   const parsed = programUpdateSchema.safeParse({
+    displayMode: formData.get("displayMode"),
     name: formData.get("name"),
     pointsPerScan: formData.get("pointsPerScan"),
+    stampCount: formData.get("stampCount"),
+    pointsPerEuro: formData.get("pointsPerEuro"),
     rewardThreshold: formData.get("rewardThreshold"),
     rewardDescription: formData.get("rewardDescription"),
   });
@@ -27,15 +30,28 @@ export async function updateProgram(
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
+  const update =
+    parsed.data.displayMode === "stamps"
+      ? {
+          display_mode: "stamps" as const,
+          name: parsed.data.name,
+          points_per_scan: parsed.data.pointsPerScan,
+          stamp_count: parsed.data.stampCount,
+          reward_threshold: parsed.data.rewardThreshold,
+          reward_description: parsed.data.rewardDescription,
+        }
+      : {
+          display_mode: "points" as const,
+          name: parsed.data.name,
+          points_per_euro: parsed.data.pointsPerEuro,
+          reward_threshold: parsed.data.rewardThreshold,
+          reward_description: parsed.data.rewardDescription,
+        };
+
   const supabase = await createServerSupabaseClient();
   const { error } = await supabase
     .from("loyalty_programs")
-    .update({
-      name: parsed.data.name,
-      points_per_scan: parsed.data.pointsPerScan,
-      reward_threshold: parsed.data.rewardThreshold,
-      reward_description: parsed.data.rewardDescription,
-    })
+    .update(update)
     .eq("merchant_id", merchant.merchantId);
 
   if (error) return { error: error.message };

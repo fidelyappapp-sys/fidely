@@ -4,6 +4,7 @@ import {
   getRevenueForRange,
   getSubscriberTrend,
   getAdminAlerts,
+  getNewSignupsThisMonth,
 } from "@/lib/admin";
 import { SubscriptionsChart } from "@/components/admin/SubscriptionsChart";
 import { BroadcastForm } from "@/components/admin/BroadcastForm";
@@ -15,12 +16,13 @@ export default async function AdminOverviewPage() {
   const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  const [counts, revenueThisMonth, revenueLastMonth, trend, alerts] = await Promise.all([
+  const [counts, revenueThisMonth, revenueLastMonth, trend, alerts, newSignups] = await Promise.all([
     getSubscriptionCounts(db),
     getRevenueForRange(startOfThisMonth, now),
     getRevenueForRange(startOfLastMonth, startOfThisMonth),
     getSubscriberTrend(db),
     getAdminAlerts(db),
+    getNewSignupsThisMonth(db),
   ]);
 
   return (
@@ -41,6 +43,10 @@ export default async function AdminOverviewPage() {
         <div className="rounded-2xl border border-gray-100 p-6">
           <p className="text-sm text-gray-500">Résiliés</p>
           <p className="mt-2 text-2xl font-semibold">{counts.canceled}</p>
+        </div>
+        <div className="rounded-2xl border border-gray-100 p-6">
+          <p className="text-sm text-gray-500">Nouveaux ce mois-ci</p>
+          <p className="mt-2 text-2xl font-semibold">{newSignups}</p>
         </div>
       </div>
 

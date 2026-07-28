@@ -6,11 +6,11 @@ import type { StampStyle } from "@/lib/supabase/types";
 
 interface CardData {
   points: number;
+  displayMode: "stamps" | "points";
+  stampCount: number;
   rewardThreshold: number;
   rewardDescription: string;
 }
-
-const MAX_STAMPS = 40;
 
 // Polls the public card endpoint so the customer sees their point balance
 // update live right after a staff scan, without needing a native push
@@ -38,26 +38,32 @@ export function CardPoints({
     return () => clearInterval(interval);
   }, [publicId]);
 
+  if (data.displayMode === "stamps") {
+    return (
+      <div>
+        <div className="mx-auto grid w-fit grid-cols-5 gap-3">
+          {Array.from({ length: data.stampCount }).map((_, i) => (
+            <StampIcon
+              key={i}
+              style={stampStyle}
+              filled={i < data.points}
+              className={`h-7 w-7 transition-colors ${i < data.points ? "text-white" : "text-white/30"}`}
+            />
+          ))}
+        </div>
+        <p className="mt-4 text-sm opacity-80">
+          {data.points} / {data.stampCount} — {data.rewardDescription}
+        </p>
+      </div>
+    );
+  }
+
   const progress = Math.min(100, (data.points / Math.max(1, data.rewardThreshold)) * 100);
-  const stampCount = Math.min(data.rewardThreshold, MAX_STAMPS);
 
   return (
     <div>
       <p className="text-5xl font-bold">{data.points}</p>
       <p className="mt-1 text-sm opacity-80">points</p>
-
-      {stampCount > 0 && (
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {Array.from({ length: stampCount }).map((_, i) => (
-            <StampIcon
-              key={i}
-              style={stampStyle}
-              filled={i < data.points}
-              className={`h-5 w-5 transition-colors ${i < data.points ? "text-white" : "text-white/30"}`}
-            />
-          ))}
-        </div>
-      )}
 
       <div className="mt-4 h-2 rounded-full bg-white/20">
         <div

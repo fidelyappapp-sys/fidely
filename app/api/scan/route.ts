@@ -71,10 +71,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Abonnement en pause." }, { status: 403 });
   }
 
+  if (subscriptionRow?.subscription_status === "past_due") {
+    return NextResponse.json(
+      { error: "Abonnement impayé. Régularisez votre facturation pour reprendre le scan." },
+      { status: 403 }
+    );
+  }
+
   const { data: result, error: rpcError } = await db
     .rpc("award_scan_points", {
       p_loyalty_card_id: card.id,
       p_staff_user_id: staff.userId,
+      p_amount_cents: parsed.data.amountCents ?? null,
     })
     .single();
 

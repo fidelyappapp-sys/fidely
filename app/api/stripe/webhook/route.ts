@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendOrderConfirmationEmail, sendAdminOrderNotification } from "@/lib/email";
+import { recordInvoiceFromStripeEvent } from "@/lib/invoicing";
 import type { KitShippingAddress, ShopOrderItem } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
@@ -49,6 +50,8 @@ export async function POST(request: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.metadata?.type === "boutique_order") {
         await processBoutiqueOrder(db, session);
+      } else if (session.metadata?.type === "merchant_subscription_setup") {
+        await activateSubscriptionFromSetup(db, session);
       } else if (session.customer && session.subscription) {
         await syncSubscription(
           db,
@@ -87,6 +90,7 @@ export async function POST(request: Request) {
           .update({ subscription_status: "past_due" })
           .eq("stripe_customer_id", invoice.customer as string);
       }
+      await recordInvoiceFromStripeEvent(db, invoice);
       break;
     }
     case "invoice.paid": {
@@ -97,6 +101,15 @@ export async function POST(request: Request) {
           .update({ subscription_status: "active" })
           .eq("stripe_customer_id", invoice.customer as string);
       }
+      await recordInvoiceFromStripeEvent(db, invoice);
+      break;
+    }
+    case "invoice.created":
+    case "invoice.finalized": {
+      // Mirrors the invoice locally as soon as Stripe issues it (usually
+      // still "open", not yet paid) so it shows up in the admin invoices
+      // list right away rather than only once payment succeeds/fails.
+      await recordInvoiceFromStripeEvent(db, event.data.object as Stripe.Invoice);
       break;
     }
     default:
@@ -120,6 +133,45 @@ async function syncSubscription(
       subscription_status: resolveSubscriptionStatus(subscription),
     })
     .eq("stripe_customer_id", customerId);
+}
+
+// Completes the €0 card-verification flow (spec 2.2): the Checkout Session
+// that got us here ran in "setup" mode, so no subscription exists yet — a
+// successful SetupIntent already confirmed the card is valid and chargeable
+// (real bank authorization, no funds captured) before we get here. Attach
+// that verified payment method to the customer and only now create the
+// actual metered subscription.
+async function activateSubscriptionFromSetup(
+  db: ReturnType<typeof createServiceRoleClient>,
+  session: Stripe.Checkout.Session
+) {
+  const merchantId = session.metadata?.merchant_id;
+  const customerId = session.customer as string | null;
+  const setupIntentId = session.setup_intent as string | null;
+  if (!merchantId || !customerId || !setupIntentId) return;
+
+  const setupIntent = await stripe().setupIntents.retrieve(setupIntentId);
+  const paymentMethodId = setupIntent.payment_method as string | null;
+  if (!paymentMethodId) return;
+
+  await stripe().customers.update(customerId, {
+    invoice_settings: { default_payment_method: paymentMethodId },
+  });
+
+  const subscription = await stripe().subscriptions.create({
+    customer: customerId,
+    items: [{ price: process.env.STRIPE_METERED_PRICE_ID! }],
+    default_payment_method: paymentMethodId,
+  });
+
+  await db
+    .from("merchants")
+    .update({
+      stripe_subscription_id: subscription.id,
+      stripe_subscription_item_id: subscription.items.data[0]?.id ?? null,
+      subscription_status: resolveSubscriptionStatus(subscription),
+    })
+    .eq("id", merchantId);
 }
 
 async function processBoutiqueOrder(

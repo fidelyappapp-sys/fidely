@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { STAFF_SCAN_COOKIE, verifyStaffScanSession } from "@/lib/staffScanAuth";
 import type { MerchantStaffRole } from "@/lib/supabase/types";
 
@@ -113,6 +113,21 @@ export async function getStaffContextOrNull(): Promise<{
 
   const session = await verifyStaffScanSession(scanToken);
   if (!session) return null;
+
+  // The JWT alone only proves the cookie was legitimately issued — with a
+  // 60-day TTL that's not enough on its own. Re-check membership is still
+  // active on every request so removing a staff member revokes their scan
+  // access immediately instead of waiting out the token's expiry.
+  const db = createServiceRoleClient();
+  const { data: staffRow } = await db
+    .from("merchant_staff")
+    .select("id")
+    .eq("id", session.staffId)
+    .eq("merchant_id", session.merchantId)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (!staffRow) return null;
 
   return { merchantId: session.merchantId, userId: session.authUserId };
 }

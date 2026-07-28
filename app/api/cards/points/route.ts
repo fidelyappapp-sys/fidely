@@ -54,6 +54,22 @@ export async function POST(request: Request) {
     );
   }
 
+  const { data: subscriptionRow } = await db
+    .from("merchants")
+    .select("subscription_status")
+    .eq("id", card.merchant_id)
+    .maybeSingle();
+
+  if (
+    subscriptionRow?.subscription_status === "paused" ||
+    subscriptionRow?.subscription_status === "past_due"
+  ) {
+    return NextResponse.json(
+      { error: "Abonnement suspendu. Régularisez votre facturation." },
+      { status: 403 }
+    );
+  }
+
   const newBalance = Math.max(0, card.points + parsed.data.delta);
 
   const { error: updateError } = await db

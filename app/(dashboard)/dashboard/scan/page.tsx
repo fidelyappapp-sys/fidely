@@ -1,8 +1,15 @@
 import { requireMerchantContext } from "@/lib/merchant";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Scanner } from "@/components/dashboard/Scanner";
 
 export default async function ScanPage() {
-  await requireMerchantContext();
+  const merchant = await requireMerchantContext();
+  const supabase = await createServerSupabaseClient();
+  const { data: program } = await supabase
+    .from("loyalty_programs")
+    .select("display_mode")
+    .eq("merchant_id", merchant.merchantId)
+    .single();
 
   return (
     <div>
@@ -11,7 +18,7 @@ export default async function ScanPage() {
         Scannez le QR code du client pour lui attribuer des points.
       </p>
       <div className="mt-6">
-        <Scanner />
+        <Scanner displayMode={program?.display_mode ?? "stamps"} />
       </div>
     </div>
   );

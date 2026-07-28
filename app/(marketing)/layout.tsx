@@ -1,6 +1,12 @@
 import Link from "next/link";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-gray-100/80 bg-white/70 backdrop-blur-md">
@@ -12,15 +18,26 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <Link href="/pricing" className="text-gray-600 transition hover:text-gray-900">
               Tarifs
             </Link>
-            <Link href="/login" className="text-gray-600 transition hover:text-gray-900">
-              Connexion
-            </Link>
-            <Link
-              href="/signup"
-              className="rounded-full bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-md"
-            >
-              Essayer gratuitement
-            </Link>
+            {user ? (
+              <Link
+                href="/dashboard"
+                className="rounded-full bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-md"
+              >
+                Accéder à mon tableau de bord
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" className="text-gray-600 transition hover:text-gray-900">
+                  Connexion
+                </Link>
+                <Link
+                  href="/signup"
+                  className="rounded-full bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-md"
+                >
+                  Essayer gratuitement
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>

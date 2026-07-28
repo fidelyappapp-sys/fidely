@@ -25,7 +25,7 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      "public_id, points, pass_serial_number, pass_auth_token, merchants(business_name, brand_color), loyalty_programs(reward_threshold, reward_description)"
+      "public_id, points, pass_serial_number, pass_auth_token, created_at, customers(full_name, phone), merchants(business_name, brand_color, logo_url), loyalty_programs(reward_threshold, reward_description)"
     )
     .eq("pass_serial_number", serialNumber)
     .maybeSingle();
@@ -43,15 +43,25 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
   const merchant = card.merchants as unknown as {
     business_name: string;
     brand_color: string;
+    logo_url: string | null;
   } | null;
   const program = card.loyalty_programs as unknown as {
     reward_threshold: number;
     reward_description: string;
   } | null;
+  const customer = card.customers as unknown as {
+    full_name: string | null;
+    phone: string | null;
+  } | null;
 
   if (!merchant || !program) return null;
 
-  const assets = await generatePassAssets(merchant.brand_color);
+  const assets = await generatePassAssets(merchant.brand_color, merchant.logo_url);
+  const memberSince = new Date(card.created_at).toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   const pass = new PKPass({}, certificates(), {
     serialNumber: card.pass_serial_number,
@@ -104,6 +114,14 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
     value: messageRow?.last_push_message ?? "Bienvenue chez " + merchant.business_name + " !",
     changeMessage: "%@",
   });
+
+  if (customer?.full_name) {
+    pass.backFields.push({ key: "customer-name", label: "Client", value: customer.full_name });
+  }
+  if (customer?.phone) {
+    pass.backFields.push({ key: "customer-phone", label: "Téléphone", value: customer.phone });
+  }
+  pass.backFields.push({ key: "member-since", label: "Membre depuis", value: memberSince });
 
   pass.setBarcodes({
     format: "PKBarcodeFormatQR",

@@ -111,5 +111,5 @@ export async function completeOnboarding(
     }
   }
 
-  redirect("/dashboard");
+  redirect("/dashboard/billing");
 }

@@ -30,12 +30,22 @@ export async function POST(request: Request) {
 
   const { data: merchant } = await db
     .from("merchants")
-    .select("id, onboarding_completed")
+    .select("id, onboarding_completed, subscription_status")
     .eq("slug", merchantSlug)
     .maybeSingle();
 
   if (!merchant || !merchant.onboarding_completed) {
     return NextResponse.json({ error: "Commerce introuvable." }, { status: 404 });
+  }
+
+  // A merchant without a validated card on file ("incomplete", never
+  // subscribed, or "canceled"/"past_due") can't onboard new customers —
+  // the join QR code must be non-functional until billing is active.
+  if (merchant.subscription_status !== "active") {
+    return NextResponse.json(
+      { error: "Ce commerce n'a pas encore activé son abonnement." },
+      { status: 403 }
+    );
   }
 
   const { data: program } = await db

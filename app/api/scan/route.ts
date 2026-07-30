@@ -78,6 +78,17 @@ export async function POST(request: Request) {
     );
   }
 
+  // "incomplete" (never subscribed), "canceled", etc. — only an active
+  // subscription (a validated card on file) may scan. Mirrors the UI gate
+  // in SubscriptionGate, but enforced here since this endpoint doesn't go
+  // through the dashboard layout.
+  if (subscriptionRow?.subscription_status !== "active") {
+    return NextResponse.json(
+      { error: "Abonnement non activé. Enregistrez une carte bancaire pour activer le scan." },
+      { status: 403 }
+    );
+  }
+
   const { data: result, error: rpcError } = await db
     .rpc("award_scan_points", {
       p_loyalty_card_id: card.id,

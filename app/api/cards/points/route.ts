@@ -70,6 +70,15 @@ export async function POST(request: Request) {
     );
   }
 
+  // "incomplete" (never subscribed), "canceled", etc. — only an active
+  // subscription (a validated card on file) may adjust points.
+  if (subscriptionRow?.subscription_status !== "active") {
+    return NextResponse.json(
+      { error: "Abonnement non activé. Enregistrez une carte bancaire pour activer le scan." },
+      { status: 403 }
+    );
+  }
+
   const newBalance = Math.max(0, card.points + parsed.data.delta);
 
   const { error: updateError } = await db

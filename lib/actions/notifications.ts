@@ -41,7 +41,7 @@ export async function sendBroadcastNotification(
 
   await db
     .from("loyalty_cards")
-    .update({ last_push_message: parsed.data.body })
+    .update({ last_push_message: parsed.data.body, apple_pass_updated_at: new Date().toISOString() })
     .eq("merchant_id", merchant.merchantId);
 
   await Promise.allSettled([

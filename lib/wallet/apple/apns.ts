@@ -24,6 +24,7 @@ export async function sendApplePassPush(pushToken: string): Promise<void> {
   notification.topic = process.env.APPLE_PASS_TYPE_ID!;
   notification.payload = {};
   notification.pushType = "background";
+  notification.contentAvailable = true;
 
   const result = await getProvider().send(notification, pushToken);
   if (result.failed.length > 0) {

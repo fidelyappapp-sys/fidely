@@ -18,7 +18,7 @@ export async function sendCardMessage(params: {
 
   await db
     .from("loyalty_cards")
-    .update({ last_push_message: params.body })
+    .update({ last_push_message: params.body, apple_pass_updated_at: new Date().toISOString() })
     .eq("id", params.loyaltyCardId);
 
   const [apple, google] = await Promise.allSettled([

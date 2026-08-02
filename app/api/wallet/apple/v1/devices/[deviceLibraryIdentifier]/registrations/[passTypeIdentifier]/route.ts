@@ -21,7 +21,7 @@ export async function GET(
     .eq("pass_type_identifier", passTypeIdentifier);
 
   if (!registrations || registrations.length === 0) {
-    return NextResponse.json({}, { status: 204 });
+    return new NextResponse(null, { status: 204 });
   }
 
   const serials = registrations.map((r) => r.serial_number);
@@ -33,7 +33,7 @@ export async function GET(
     .gt("apple_pass_updated_at", since ?? "1970-01-01T00:00:00Z");
 
   if (!cards || cards.length === 0) {
-    return NextResponse.json({}, { status: 204 });
+    return new NextResponse(null, { status: 204 });
   }
 
   const lastUpdated = cards.reduce(

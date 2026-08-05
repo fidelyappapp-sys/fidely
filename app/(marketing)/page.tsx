@@ -99,8 +99,17 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="flex justify-center lg:justify-end">
+          <div className="flex flex-col items-center gap-5 lg:items-end">
             <HeroVisual />
+            <Link
+              href="/abonnement"
+              className="group inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white/80 px-5 py-2.5 text-sm font-medium text-gray-900 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-gray-400 hover:shadow-md"
+            >
+              Découvrir notre abonnement
+              <span aria-hidden className="transition group-hover:translate-x-0.5">
+                →
+              </span>
+            </Link>
           </div>
         </div>
       </section>

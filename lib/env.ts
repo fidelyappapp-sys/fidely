@@ -11,11 +11,7 @@ export const isAppleWalletConfigured = Boolean(
 );
 
 export const isGoogleWalletConfigured = Boolean(
-  process.env.GOOGLE_WALLET_ISSUER_ID &&
-    process.env.GCP_PROJECT_NUMBER &&
-    process.env.GCP_WORKLOAD_IDENTITY_POOL_ID &&
-    process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID &&
-    process.env.GCP_SERVICE_ACCOUNT_EMAIL
+  process.env.GOOGLE_WALLET_ISSUER_ID && process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_KEY
 );
 
 export const isStripeConfigured = Boolean(

@@ -1,44 +1,31 @@
-import { getVercelOidcToken } from "@vercel/oidc";
-import { BaseExternalAccountClient, ExternalAccountClient } from "google-auth-library";
+import { JWT } from "google-auth-library";
 
-let clientSingleton: BaseExternalAccountClient | null = null;
+let clientSingleton: JWT | null = null;
+let credentialsSingleton: { client_email: string; private_key: string } | null = null;
 
-function providerPath(): string {
-  const projectNumber = process.env.GCP_PROJECT_NUMBER!;
-  const poolId = process.env.GCP_WORKLOAD_IDENTITY_POOL_ID!;
-  const providerId = process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID!;
-  return `projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`;
+// Service account key JSON (base64-encoded, same convention as
+// APPLE_SIGNER_CERT/APPLE_SIGNER_KEY) used directly — no Workload Identity
+// Federation. Whether key creation is possible at all depends on the GCP
+// project's org policy (see docs/WALLET_SETUP.md).
+function credentials(): { client_email: string; private_key: string } {
+  if (!credentialsSingleton) {
+    const json = Buffer.from(process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_KEY!, "base64").toString(
+      "utf8"
+    );
+    const parsed = JSON.parse(json) as { client_email: string; private_key: string };
+    credentialsSingleton = { client_email: parsed.client_email, private_key: parsed.private_key };
+  }
+  return credentialsSingleton;
 }
 
-// Exchanges a Vercel OIDC token for short-lived Google credentials via
-// Workload Identity Federation — no service account key ever exists.
-function getClient(): BaseExternalAccountClient {
+function getClient(): JWT {
   if (!clientSingleton) {
-    const path = providerPath();
-    // The STS token exchange wants the provider's bare resource name...
-    const stsAudience = `//iam.googleapis.com/${path}`;
-    // ...but the OIDC token's own `aud` claim (GCP's "default audience" for
-    // this provider) must carry the full URL.
-    const tokenAudience = `https://iam.googleapis.com/${path}`;
-
-    const client = ExternalAccountClient.fromJSON({
-      type: "external_account",
-      audience: stsAudience,
-      subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
-      token_url: "https://sts.googleapis.com/v1/token",
-      service_account_impersonation_url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${process.env.GCP_SERVICE_ACCOUNT_EMAIL}:generateAccessToken`,
-      subject_token_supplier: {
-        getSubjectToken: () => getVercelOidcToken({ audience: tokenAudience }),
-      },
-      // wallet_object.issuer for the Wallet Objects API calls in objects.ts,
-      // cloud-platform for the IAM Credentials signJwt call in saveLink.ts.
-      scopes: [
-        "https://www.googleapis.com/auth/wallet_object.issuer",
-        "https://www.googleapis.com/auth/cloud-platform",
-      ],
+    const { client_email, private_key } = credentials();
+    clientSingleton = new JWT({
+      email: client_email,
+      key: private_key,
+      scopes: ["https://www.googleapis.com/auth/wallet_object.issuer"],
     });
-    if (!client) throw new Error("Failed to build Google Wallet external account client");
-    clientSingleton = client;
   }
   return clientSingleton;
 }
@@ -47,4 +34,13 @@ export async function googleWalletAccessToken(): Promise<string> {
   const { token } = await getClient().getAccessToken();
   if (!token) throw new Error("Failed to obtain Google Wallet access token");
   return token;
+}
+
+// Used by saveLink.ts to sign the "Save to Google Wallet" JWT locally with
+// the same key, instead of calling the IAM Credentials signJwt API.
+export function googleWalletServiceAccountCredentials(): {
+  client_email: string;
+  private_key: string;
+} {
+  return credentials();
 }

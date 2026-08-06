@@ -1,40 +1,27 @@
+import { importPKCS8, SignJWT } from "jose";
 import { appBaseUrl } from "@/lib/env";
-import { googleWalletAccessToken } from "./auth";
+import { googleWalletServiceAccountCredentials } from "./auth";
 
 // Builds the signed "Save to Google Wallet" JWT and returns the save URL.
-// Signing happens via the IAM Credentials API instead of a local private
-// key, since no service account key exists (see docs/WALLET_SETUP.md).
+// Signed locally with the service account's own private key — no
+// iamcredentials.googleapis.com round trip needed once a real key exists.
 // See https://developers.google.com/wallet/retail/loyalty-cards/web#add-to-google-wallet
 export async function buildGoogleWalletSaveUrl(objectId: string, classId: string): Promise<string> {
-  const serviceAccountEmail = process.env.GCP_SERVICE_ACCOUNT_EMAIL!;
-  const claims = {
-    iss: serviceAccountEmail,
+  const { client_email, private_key } = googleWalletServiceAccountCredentials();
+  const key = await importPKCS8(private_key, "RS256");
+
+  const signedJwt = await new SignJWT({
     aud: "google",
     typ: "savetowallet",
-    iat: Math.floor(Date.now() / 1000),
     origins: [appBaseUrl()],
     payload: {
       loyaltyObjects: [{ id: objectId, classId }],
     },
-  };
+  })
+    .setProtectedHeader({ alg: "RS256" })
+    .setIssuer(client_email)
+    .setIssuedAt()
+    .sign(key);
 
-  const token = await googleWalletAccessToken();
-  const res = await fetch(
-    `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${serviceAccountEmail}:signJwt`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ payload: JSON.stringify(claims) }),
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error(`Failed to sign Google Wallet save JWT: ${await res.text()}`);
-  }
-
-  const { signedJwt } = (await res.json()) as { signedJwt: string };
   return `https://pay.google.com/gp/v/save/${signedJwt}`;
 }

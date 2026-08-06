@@ -25,6 +25,7 @@ export async function updateCardCustomization(
 
   const parsed = cardCustomizationSchema.safeParse({
     brandColor: formData.get("brandColor"),
+    textColor: formData.get("textColor"),
     stampStyle: formData.get("stampStyle"),
     sector: formData.get("sector"),
     backgroundPhotoEnabled: formData.get("backgroundPhotoEnabled"),
@@ -36,6 +37,7 @@ export async function updateCardCustomization(
 
   const update: MerchantUpdate = {
     brand_color: parsed.data.brandColor,
+    text_color: parsed.data.textColor,
     stamp_style: parsed.data.stampStyle,
     sector: parsed.data.sector || null,
     background_photo_enabled: parsed.data.backgroundPhotoEnabled ?? false,

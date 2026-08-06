@@ -19,7 +19,7 @@ export default async function ProgramPage() {
     supabase
       .from("merchants")
       .select(
-        "brand_color, stamp_style, sector, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
+        "brand_color, text_color, stamp_style, sector, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
       )
       .eq("id", merchant.merchantId)
       .single(),
@@ -61,6 +61,7 @@ export default async function ProgramPage() {
             displayMode={program.display_mode}
             stampCount={program.stamp_count}
             initialColor={merchantRow?.brand_color ?? merchant.brandColor}
+            initialTextColor={merchantRow?.text_color ?? null}
             initialStampStyle={merchantRow?.stamp_style ?? "circle"}
             initialSector={merchantRow?.sector ?? null}
             initialLogoUrl={merchantRow?.logo_url ?? merchant.logoUrl}
@@ -73,4 +74,3 @@ export default async function ProgramPage() {
     </div>
   );
 }
-

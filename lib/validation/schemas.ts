@@ -103,29 +103,42 @@ export const menuItemSchema = z.object({
   priceCents: z.coerce.number().int().min(0).max(1_000_000).optional(),
 });
 
+const sectorValues = [
+  "restaurant",
+  "food_truck",
+  "bar",
+  "hairdresser",
+  "cafe",
+  "bakery",
+  "beauty_spa",
+  "gym",
+  "dry_cleaning",
+  "garage",
+  "florist",
+  "bookstore",
+  "pet_shop",
+  "pharmacy",
+  "cinema",
+] as const;
+
+// The stamp icon picker merges the generic shapes with the sector icons
+// into one selector (CardCustomizer), so stampStyle accepts either set —
+// must stay in sync with the check constraint in
+// supabase/migrations/0021_unified_stamp_icon_and_text_color.sql.
 export const cardCustomizationSchema = z.object({
   brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur hexadécimale invalide"),
-  stampStyle: z.enum(["star", "square", "triangle", "heart", "butterfly", "circle", "diamond"]),
-  sector: z
-    .enum([
-      "restaurant",
-      "food_truck",
-      "bar",
-      "hairdresser",
-      "cafe",
-      "bakery",
-      "beauty_spa",
-      "gym",
-      "dry_cleaning",
-      "garage",
-      "florist",
-      "bookstore",
-      "pet_shop",
-      "pharmacy",
-      "cinema",
-    ])
-    .optional()
-    .or(z.literal("")),
+  textColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur hexadécimale invalide"),
+  stampStyle: z.enum([
+    "star",
+    "square",
+    "triangle",
+    "heart",
+    "butterfly",
+    "circle",
+    "diamond",
+    ...sectorValues,
+  ]),
+  sector: z.enum(sectorValues).optional().or(z.literal("")),
   backgroundPhotoEnabled: z.coerce.boolean().optional(),
   nameDisplayMode: z.enum(["text", "logo"]).default("text"),
 });

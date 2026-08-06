@@ -30,6 +30,10 @@ export type SectorKey =
   | "pharmacy"
   | "cinema";
 
+// The stamp icon picker (CardCustomizer) merges the generic shapes with the
+// sector icons into one selector, so stamp_style must accept either set.
+export type StampIconKey = StampStyle | SectorKey;
+
 export type PushStatus = "skipped" | "sent" | "failed";
 
 export type WeekDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -94,12 +98,13 @@ export interface Database {
           kit_shipping_address: KitShippingAddress | null;
           kit_delivery_status: KitDeliveryStatus;
           kit_payment_intent_id: string | null;
-          stamp_style: StampStyle;
+          stamp_style: StampIconKey;
           business_type: string | null;
           background_photo_url: string | null;
           background_photo_enabled: boolean;
           sector: SectorKey | null;
           name_display_mode: "text" | "logo";
+          text_color: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["merchants"]["Row"]> & {

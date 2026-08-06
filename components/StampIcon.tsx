@@ -1,4 +1,5 @@
-import type { StampStyle } from "@/lib/supabase/types";
+import type { StampStyle, StampIconKey } from "@/lib/supabase/types";
+import { SectorIcon } from "@/components/SectorIcon";
 
 export const STAMP_STYLES: { value: StampStyle; label: string }[] = [
   { value: "circle", label: "Cercle" },
@@ -10,15 +11,31 @@ export const STAMP_STYLES: { value: StampStyle; label: string }[] = [
   { value: "diamond", label: "Diamant" },
 ];
 
+const SHAPE_VALUES = new Set<string>(STAMP_STYLES.map((s) => s.value));
+
+function isShape(style: StampIconKey): style is StampStyle {
+  return SHAPE_VALUES.has(style);
+}
+
+// Merged picker (CardCustomizer): a stamp can be either one of the generic
+// shapes below or one of the sector icons (SECTORS) — delegate to
+// SectorIcon for the latter instead of duplicating its paths. Sector icons
+// are stroke-only (no solid "filled" variant), so `filled` only affects
+// shapes; sector stamps rely on the caller's className (color/opacity) for
+// the filled/unfilled distinction, same as everywhere else they're used.
 export function StampIcon({
   style,
   filled,
   className = "",
 }: {
-  style: StampStyle;
+  style: StampIconKey;
   filled: boolean;
   className?: string;
 }) {
+  if (!isShape(style)) {
+    return <SectorIcon sector={style} className={className} />;
+  }
+
   const shapeClass = filled ? "fill-current" : "fill-none stroke-current stroke-[1.5]";
 
   switch (style) {

@@ -51,6 +51,20 @@ export function rgbToHsv({ r, g, b }: RGB): HSV {
   return { h, s, v };
 }
 
+// Relative luminance (WCAG-ish, not the full formula) used only to pick a
+// legible default text color — good enough for a black/white decision,
+// doesn't need to be colorimetrically precise.
+export function relativeLuminance({ r, g, b }: RGB): number {
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+// Suggested default text color for a given background hex: white on dark
+// backgrounds, black on light ones. Only used as the picker's initial
+// value — never overrides a color the merchant already chose explicitly.
+export function suggestTextColor(backgroundHex: string): string {
+  return relativeLuminance(hexToRgb(backgroundHex)) > 0.6 ? "#111827" : "#ffffff";
+}
+
 export function hsvToRgb({ h, s, v }: HSV): RGB {
   const c = v * s;
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1));

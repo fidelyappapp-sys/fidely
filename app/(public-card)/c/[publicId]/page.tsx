@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { qrCodeDataUrl } from "@/lib/qr/generate";
 import { isAppleWalletConfigured, isGoogleWalletConfigured, isWebPushConfigured } from "@/lib/env";
-import type { StampStyle } from "@/lib/supabase/types";
+import type { StampIconKey } from "@/lib/supabase/types";
+import { suggestTextColor } from "@/lib/color";
 import { CardPoints } from "@/components/public-card/CardPoints";
 import { WalletButtons } from "@/components/public-card/WalletButtons";
 import { PushOptIn } from "@/components/public-card/PushOptIn";
@@ -61,18 +62,20 @@ export default async function PublicCardPage({
     getMerchantGalleryPhotos(db, card.merchant_id),
     db
       .from("merchants")
-      .select("stamp_style, background_photo_url, background_photo_enabled, name_display_mode")
+      .select("stamp_style, text_color, background_photo_url, background_photo_enabled, name_display_mode")
       .eq("id", card.merchant_id)
       .maybeSingle(),
   ]);
 
-  const stampStyle: StampStyle = (customizationRow.data?.stamp_style as StampStyle | undefined) ?? "circle";
+  const stampStyle: StampIconKey =
+    (customizationRow.data?.stamp_style as StampIconKey | undefined) ?? "circle";
   const useBackgroundPhoto = Boolean(
     customizationRow.data?.background_photo_enabled && customizationRow.data?.background_photo_url
   );
   const showLogoAsName = customizationRow.data?.name_display_mode === "logo" && Boolean(merchant?.logo_url);
 
   const brandColor = merchant?.brand_color ?? "#111827";
+  const textColor = customizationRow.data?.text_color ?? suggestTextColor(brandColor);
   const memberSince = new Date(card.created_at).toLocaleDateString("fr-FR", {
     day: "numeric",
     month: "short",
@@ -95,24 +98,25 @@ export default async function PublicCardPage({
                 middle over the photo or solid brand color, phone/customer name
                 at the bottom, QR code centered underneath. */}
             <div
-              className="relative overflow-hidden rounded-[28px] text-white shadow-xl shadow-black/10"
-              style={
-                useBackgroundPhoto
-                  ? {
+              className="relative overflow-hidden rounded-[28px] shadow-xl shadow-black/10"
+              style={{ backgroundColor: brandColor, color: textColor }}
+            >
+              {useBackgroundPhoto ? (
+                <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-40 overflow-hidden">
+                  <div
+                    className="absolute inset-0"
+                    style={{
                       backgroundImage: `url(${customizationRow.data!.background_photo_url})`,
                       backgroundSize: "cover",
                       backgroundPosition: "center",
-                    }
-                  : { backgroundColor: brandColor }
-              }
-            >
-              {useBackgroundPhoto && (
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-black/45 to-black/80"
-                />
-              )}
-              {!useBackgroundPhoto && (
+                    }}
+                  />
+                  <div
+                    className="absolute inset-x-0 bottom-0 h-12"
+                    style={{ background: `linear-gradient(to bottom, transparent, ${brandColor})` }}
+                  />
+                </div>
+              ) : (
                 <div
                   aria-hidden
                   className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_-10%,_rgba(255,255,255,0.18),_transparent_55%)]"
@@ -129,11 +133,11 @@ export default async function PublicCardPage({
                       className="h-12 w-12 rounded-xl object-cover shadow-lg ring-2 ring-white/30"
                     />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 text-lg font-bold shadow-lg ring-2 ring-white/30">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 text-lg font-bold text-white shadow-lg ring-2 ring-white/30">
                       {merchant?.business_name?.[0]?.toUpperCase() ?? "F"}
                     </div>
                   )}
-                  <span className="font-serif text-xs tracking-wide text-white/70">
+                  <span className="font-serif text-xs tracking-wide opacity-70">
                     Membre depuis {memberSince}
                   </span>
                 </div>
@@ -174,11 +178,11 @@ export default async function PublicCardPage({
 
                 <div className="mt-8 flex items-end justify-between">
                   <div>
-                    <p className="text-[10px] tracking-wide text-white/60 uppercase">Téléphone</p>
+                    <p className="text-[10px] tracking-wide uppercase opacity-60">Téléphone</p>
                     <p className="text-sm font-medium">{customer?.phone || "—"}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] tracking-wide text-white/60 uppercase">Client</p>
+                    <p className="text-[10px] tracking-wide uppercase opacity-60">Client</p>
                     <p className="font-serif text-sm font-medium">{customer?.full_name || "—"}</p>
                   </div>
                 </div>

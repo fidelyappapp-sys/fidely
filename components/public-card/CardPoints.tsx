@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { StampIcon } from "@/components/StampIcon";
-import type { StampStyle } from "@/lib/supabase/types";
+import type { StampIconKey } from "@/lib/supabase/types";
 
 interface CardData {
   points: number;
@@ -21,7 +21,7 @@ export function CardPoints({
   initial,
 }: {
   publicId: string;
-  stampStyle: StampStyle;
+  stampStyle: StampIconKey;
   initial: CardData;
 }) {
   const [data, setData] = useState(initial);
@@ -47,7 +47,7 @@ export function CardPoints({
               key={i}
               style={stampStyle}
               filled={i < data.points}
-              className={`h-7 w-7 transition-colors ${i < data.points ? "text-white" : "text-white/30"}`}
+              className={`h-7 w-7 transition-opacity ${i < data.points ? "opacity-100" : "opacity-30"}`}
             />
           ))}
         </div>

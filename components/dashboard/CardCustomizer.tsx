@@ -5,7 +5,8 @@ import { updateCardCustomization, type CardCustomizationState } from "@/lib/acti
 import { StampIcon, STAMP_STYLES } from "@/components/StampIcon";
 import { SectorIcon, SECTORS } from "@/components/SectorIcon";
 import { ColorPicker } from "@/components/dashboard/ColorPicker";
-import type { StampStyle, SectorKey } from "@/lib/supabase/types";
+import { suggestTextColor } from "@/lib/color";
+import type { StampIconKey, SectorKey } from "@/lib/supabase/types";
 
 const initialState: CardCustomizationState = {};
 
@@ -23,6 +24,7 @@ export function CardCustomizer({
   displayMode,
   stampCount,
   initialColor,
+  initialTextColor,
   initialStampStyle,
   initialSector,
   initialLogoUrl,
@@ -34,7 +36,10 @@ export function CardCustomizer({
   displayMode: "stamps" | "points";
   stampCount: number;
   initialColor: string;
-  initialStampStyle: StampStyle;
+  // Null until a merchant explicitly picks one — the picker then starts
+  // from a luminance-based suggestion instead (see suggestTextColor).
+  initialTextColor: string | null;
+  initialStampStyle: StampIconKey;
   initialSector: SectorKey | null;
   initialLogoUrl: string | null;
   initialBackgroundPhotoUrl: string | null;
@@ -43,7 +48,8 @@ export function CardCustomizer({
 }) {
   const [state, formAction, pending] = useActionState(updateCardCustomization, initialState);
   const [color, setColor] = useState(initialColor);
-  const [stampStyle, setStampStyle] = useState<StampStyle>(initialStampStyle);
+  const [textColor, setTextColor] = useState(initialTextColor ?? suggestTextColor(initialColor));
+  const [stampStyle, setStampStyle] = useState<StampIconKey>(initialStampStyle);
   const [sector, setSector] = useState<SectorKey | "">(initialSector ?? "");
   const [logoPreview, setLogoPreview] = useState<string | null>(initialLogoUrl);
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(initialBackgroundPhotoUrl);
@@ -54,11 +60,13 @@ export function CardCustomizer({
 
   const showLogoOnCard = nameDisplayMode === "logo" && Boolean(logoPreview);
   const previewFilled = Math.max(1, Math.round(stampCount * 0.4));
+  const showPhotoBanner = backgroundEnabled && Boolean(backgroundPreview);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <form action={formAction} className="space-y-6">
         <input type="hidden" name="brandColor" value={color} />
+        <input type="hidden" name="textColor" value={textColor} />
         <input type="hidden" name="stampStyle" value={stampStyle} />
         <input type="hidden" name="sector" value={sector} />
         <input type="hidden" name="backgroundPhotoEnabled" value={backgroundEnabled ? "true" : "false"} />
@@ -68,6 +76,17 @@ export function CardCustomizer({
           <p className="text-sm font-medium text-gray-700">Couleur de la carte</p>
           <div className="mt-2">
             <ColorPicker value={color} onChange={setColor} />
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-gray-700">Couleur du texte</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Nom, libellés et chiffres affichés sur la carte — choisissez-la clair sur fond sombre, ou
+            sombre sur fond clair/photo pour rester lisible.
+          </p>
+          <div className="mt-2">
+            <ColorPicker value={textColor} onChange={setTextColor} />
           </div>
         </div>
 
@@ -137,17 +156,24 @@ export function CardCustomizer({
         </div>
 
         <div>
-          <p className="text-sm font-medium text-gray-700">Secteur d&apos;activité</p>
-          <p className="mt-0.5 text-xs text-gray-500">Utilisé comme icône par défaut tant que vous n&apos;avez pas de logo.</p>
+          <p className="text-sm font-medium text-gray-700">Style des tampons de points</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Choisissez n&apos;importe quelle icône ci-dessous — secteur ou forme générique — comme style
+            de tampon. La même icône de secteur sert aussi d&apos;icône par défaut tant que vous
+            n&apos;avez pas de logo.
+          </p>
           <div className="mt-2 grid grid-cols-5 gap-2">
             {SECTORS.map((s) => (
               <button
                 key={s.value}
                 type="button"
-                onClick={() => setSector(s.value === sector ? "" : s.value)}
+                onClick={() => {
+                  setSector(s.value);
+                  setStampStyle(s.value);
+                }}
                 title={s.label}
                 className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[10px] transition ${
-                  sector === s.value ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
+                  stampStyle === s.value ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
                 }`}
               >
                 <SectorIcon sector={s.value} className="h-4 w-4 text-gray-900" />
@@ -155,11 +181,28 @@ export function CardCustomizer({
               </button>
             ))}
           </div>
+          <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
+            {STAMP_STYLES.map((s) => (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => setStampStyle(s.value)}
+                className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-xs transition ${
+                  stampStyle === s.value
+                    ? "border-gray-900 bg-gray-50"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <StampIcon style={s.value} filled className="h-5 w-5 text-gray-900" />
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div>
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-700">Photo de fond</p>
+            <p className="text-sm font-medium text-gray-700">Photo en bandeau</p>
             <label className="flex items-center gap-2 text-xs text-gray-600">
               <input
                 type="checkbox"
@@ -198,35 +241,17 @@ export function CardCustomizer({
               </button>
             </div>
           )}
-          {!backgroundEnabled && (
+          {backgroundEnabled ? (
+            <p className="mt-1 text-xs text-gray-500">
+              La photo occupe uniquement le bandeau du haut de la carte — le reste garde votre couleur de
+              fond.
+            </p>
+          ) : (
             <p className="mt-1 text-xs text-gray-500">
               Désactivé — la carte utilise la couleur unie ci-dessus.
             </p>
           )}
         </div>
-
-        {displayMode === "stamps" && (
-          <div>
-            <p className="text-sm font-medium text-gray-700">Style des tampons de points</p>
-            <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
-              {STAMP_STYLES.map((s) => (
-                <button
-                  key={s.value}
-                  type="button"
-                  onClick={() => setStampStyle(s.value)}
-                  className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-xs transition ${
-                    stampStyle === s.value
-                      ? "border-gray-900 bg-gray-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <StampIcon style={s.value} filled className="h-5 w-5 text-gray-900" />
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {state.error && <p className="text-sm text-red-600">{state.error}</p>}
         {state.success && <p className="text-sm text-green-600">Carte mise à jour.</p>}
@@ -242,22 +267,31 @@ export function CardCustomizer({
 
       <div className="flex justify-center lg:justify-end lg:pt-7">
         <div
-          className="relative w-72 overflow-hidden rounded-[22px] p-5 text-white shadow-2xl ring-1 ring-white/10"
-          style={
-            backgroundEnabled && backgroundPreview
-              ? { backgroundImage: `url(${backgroundPreview})`, backgroundSize: "cover", backgroundPosition: "center" }
-              : { backgroundColor: color }
-          }
+          className="relative w-72 overflow-hidden rounded-[22px] p-5 shadow-2xl ring-1 ring-white/10"
+          style={{ backgroundColor: color, color: textColor }}
         >
-          {backgroundEnabled && backgroundPreview && (
-            <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-black/10" />
+          {showPhotoBanner && (
+            <div aria-hidden className="absolute inset-x-0 top-0 h-32 overflow-hidden">
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${backgroundPreview})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              />
+              <div
+                className="absolute inset-x-0 bottom-0 h-10"
+                style={{ background: `linear-gradient(to bottom, transparent, ${color})` }}
+              />
+            </div>
           )}
           <div className="relative">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-wide text-white/70 uppercase">
+              <span className="text-xs font-medium tracking-wide uppercase opacity-70">
                 Carte de fidélité
               </span>
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/15 text-sm font-bold">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/15 text-sm font-bold text-white">
                 {logoPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={logoPreview} alt="" className="h-full w-full object-cover" />
@@ -283,11 +317,11 @@ export function CardCustomizer({
                       key={i}
                       style={stampStyle}
                       filled={i < previewFilled}
-                      className={`h-5 w-5 ${i < previewFilled ? "text-white" : "text-white/30"}`}
+                      className={`h-5 w-5 transition-opacity ${i < previewFilled ? "opacity-100" : "opacity-30"}`}
                     />
                   ))}
                 </div>
-                <p className="mt-4 text-xs text-white/70">
+                <p className="mt-4 text-xs opacity-70">
                   Aperçu — {previewFilled}/{stampCount} tampons
                 </p>
               </>
@@ -297,21 +331,21 @@ export function CardCustomizer({
                 <div className="mt-3 h-2 rounded-full bg-white/20">
                   <div className="h-2 w-2/5 rounded-full bg-white" />
                 </div>
-                <p className="mt-2 text-xs text-white/70">Aperçu — points cumulés</p>
+                <p className="mt-2 text-xs opacity-70">Aperçu — points cumulés</p>
               </>
             )}
 
             <div className="mt-5 flex items-end justify-between border-t border-white/10 pt-3">
               <div>
-                <p className="text-[10px] tracking-wide text-white/60 uppercase">Téléphone</p>
+                <p className="text-[10px] tracking-wide uppercase opacity-60">Téléphone</p>
                 <p className="text-xs font-medium">{PREVIEW_CUSTOMER.phone}</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] tracking-wide text-white/60 uppercase">Client</p>
+                <p className="text-[10px] tracking-wide uppercase opacity-60">Client</p>
                 <p className="font-serif text-xs font-medium">{PREVIEW_CUSTOMER.name}</p>
               </div>
             </div>
-            <p className="mt-2 text-[10px] text-white/50">Membre depuis {PREVIEW_CUSTOMER.memberSince}</p>
+            <p className="mt-2 text-[10px] opacity-50">Membre depuis {PREVIEW_CUSTOMER.memberSince}</p>
           </div>
         </div>
       </div>

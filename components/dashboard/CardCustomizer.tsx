@@ -4,18 +4,8 @@ import { useActionState, useRef, useState } from "react";
 import { updateCardCustomization, type CardCustomizationState } from "@/lib/actions/cardCustomization";
 import { StampIcon, STAMP_STYLES } from "@/components/StampIcon";
 import { SectorIcon, SECTORS } from "@/components/SectorIcon";
+import { ColorPicker } from "@/components/dashboard/ColorPicker";
 import type { StampStyle, SectorKey } from "@/lib/supabase/types";
-
-const COLOR_PRESETS = [
-  "#111827",
-  "#4f46e5",
-  "#0891b2",
-  "#059669",
-  "#d97706",
-  "#dc2626",
-  "#db2777",
-  "#7c3aed",
-];
 
 const initialState: CardCustomizationState = {};
 
@@ -76,26 +66,8 @@ export function CardCustomizer({
 
         <div>
           <p className="text-sm font-medium text-gray-700">Couleur de la carte</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {COLOR_PRESETS.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => setColor(preset)}
-                aria-label={preset}
-                className={`h-8 w-8 rounded-full ring-2 ring-offset-2 transition ${
-                  color.toLowerCase() === preset ? "ring-gray-900" : "ring-transparent"
-                }`}
-                style={{ backgroundColor: preset }}
-              />
-            ))}
-            <input
-              type="color"
-              value={color}
-              onChange={(event) => setColor(event.target.value)}
-              className="h-8 w-10 cursor-pointer rounded border border-gray-300"
-              aria-label="Couleur personnalisée"
-            />
+          <div className="mt-2">
+            <ColorPicker value={color} onChange={setColor} />
           </div>
         </div>
 

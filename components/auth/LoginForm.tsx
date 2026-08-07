@@ -49,6 +49,12 @@ export function LoginForm() {
         {pending ? "Connexion..." : "Se connecter"}
       </button>
 
+      <div className="text-center text-sm">
+        <Link href="/forgot-password" className="text-gray-500 hover:text-gray-900">
+          Mot de passe oublié ?
+        </Link>
+      </div>
+
       <div className="flex justify-between text-sm text-gray-500">
         <Link href="/magic-link" className="hover:text-gray-900">
           Lien magique

@@ -66,6 +66,41 @@ export async function sendMagicLink(
   return { sent: true };
 }
 
+export async function requestPasswordReset(
+  _prevState: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState & { sent?: boolean }> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { error: "Adresse email requise." };
+
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${appBaseUrl()}/auth/confirm?next=/reset-password`,
+  });
+
+  if (error) return { error: error.message };
+
+  return { sent: true };
+}
+
+export async function updatePassword(
+  _prevState: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const password = String(formData.get("password") ?? "");
+
+  if (password.length < 8) {
+    return { error: "Le mot de passe doit contenir au moins 8 caractères." };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) return { error: error.message };
+
+  redirect("/dashboard");
+}
+
 export async function signOut() {
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();

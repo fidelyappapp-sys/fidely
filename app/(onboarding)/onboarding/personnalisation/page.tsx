@@ -14,7 +14,7 @@ export default async function OnboardingPersonalisationPage() {
     supabase
       .from("merchants")
       .select(
-        "brand_color, stamp_style, sector, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
+        "brand_color, text_color, stamp_style, sector, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
       )
       .eq("id", merchant.merchantId)
       .single(),
@@ -38,6 +38,7 @@ export default async function OnboardingPersonalisationPage() {
         rewardThreshold={program?.reward_threshold ?? 10}
         rewardDescription={program?.reward_description ?? ""}
         initialColor={merchantRow?.brand_color ?? "#111827"}
+        initialTextColor={merchantRow?.text_color ?? null}
         initialStampStyle={merchantRow?.stamp_style ?? "circle"}
         initialSector={merchantRow?.sector ?? null}
         initialLogoUrl={merchantRow?.logo_url ?? null}

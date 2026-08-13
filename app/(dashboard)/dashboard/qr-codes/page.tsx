@@ -21,10 +21,16 @@ export default async function QrCodesPage() {
   const [joinQr, qrCodes] = await Promise.all([
     urlQrDataUrl(joinUrl),
     Promise.all(
-      qrRows.map(async (row) => ({
-        ...row,
-        qrDataUrl: await urlQrDataUrl(row.targetUrl),
-      }))
+      // "main" is rendered separately above via joinUrl/joinQr — excluding
+      // it here isn't just tidiness: its target_url can be empty (pre-0023
+      // backfilled rows, or any future data hiccup) and urlQrDataUrl throws
+      // on empty input, which would take down the whole page.
+      qrRows
+        .filter((row) => row.kind !== "main")
+        .map(async (row) => ({
+          ...row,
+          qrDataUrl: await urlQrDataUrl(row.targetUrl),
+        }))
     ),
   ]);
 

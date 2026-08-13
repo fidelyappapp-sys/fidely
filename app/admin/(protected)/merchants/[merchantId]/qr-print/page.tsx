@@ -22,7 +22,10 @@ export default async function AdminMerchantQrPrintPage({
 
   if (!merchant) notFound();
 
-  const customQrRows = await getMerchantQrCodes(db, merchant.id);
+  // "main" is the same point of sale already rendered as "Inscription"
+  // below (a real row since 0023, previously only a virtual URL) — exclude
+  // it here to avoid printing it twice.
+  const customQrRows = (await getMerchantQrCodes(db, merchant.id)).filter((row) => row.kind !== "main");
   const joinUrl = `${appBaseUrl()}/join/${merchant.slug}`;
 
   const items = await Promise.all([

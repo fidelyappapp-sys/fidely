@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStaffContextOrNull } from "@/lib/merchant";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { verifyQrPayload } from "@/lib/qr/verify";
+import { signedQrPayload } from "@/lib/qr/generate";
 import { scanSchema } from "@/lib/validation/schemas";
 import { isStripeConfigured } from "@/lib/env";
 import { reportScanUsage } from "@/lib/stripe/usage";
@@ -126,6 +127,12 @@ export async function POST(request: Request) {
         : `Vous avez ${result.points_balance_after} points chez ${result.business_name}. Votre récompense est disponible !`
     : null;
 
+  // display_mode only comes back once migration 0020 has landed — same
+  // tiered fallback as business_name/reward_threshold above. Falls back to
+  // "stamps", the schema's own default for loyalty_programs.display_mode.
+  const displayMode: "stamps" | "points" = result.display_mode === "points" ? "points" : "stamps";
+  const qrValue = signedQrPayload(verified.publicId);
+
   const [stripeOutcome, , applePushStatus, googlePushStatus] = await Promise.allSettled([
     isStripeConfigured && result.stripe_customer_id
       ? reportScanUsage({
@@ -140,11 +147,11 @@ export async function POST(request: Request) {
       : Promise.resolve(null),
     notifyAppleWalletUpdate(result.pass_serial_number),
     notificationBody
-      ? notifyGoogleWalletUpdate(result.google_object_id, result.points_balance_after, {
+      ? notifyGoogleWalletUpdate(result.google_object_id, result.points_balance_after, displayMode, qrValue, {
           header: "Nouveaux points",
           body: notificationBody,
         })
-      : notifyGoogleWalletUpdate(result.google_object_id, result.points_balance_after),
+      : notifyGoogleWalletUpdate(result.google_object_id, result.points_balance_after, displayMode, qrValue),
     sendWebPushToCard(db, card.id, {
       title: rewardClaimed ? "Récompense débloquée !" : "Nouveaux points",
       body: notificationBody ?? `Vous avez ${result.points_balance_after} points.`,

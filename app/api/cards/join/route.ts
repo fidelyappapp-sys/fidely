@@ -48,19 +48,40 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: program } = await db
-    .from("loyalty_programs")
-    .select("id")
-    .eq("merchant_id", merchant.id)
-    .limit(1)
-    .maybeSingle();
+  // `source` is the id of the merchant_qr_codes row the customer scanned
+  // (a join_source point of sale) — falls back to the merchant's "main"
+  // point of sale (the original /join/<slug> QR, no source param) when
+  // absent or when the id doesn't resolve to one of this merchant's rows.
+  let pointOfSale: { id: string; label: string; loyalty_program_id: string | null } | null = null;
 
-  if (!program) {
+  if (source) {
+    const { data } = await db
+      .from("merchant_qr_codes")
+      .select("id, label, loyalty_program_id")
+      .eq("id", source)
+      .eq("merchant_id", merchant.id)
+      .maybeSingle();
+    pointOfSale = data;
+  }
+
+  if (!pointOfSale) {
+    const { data } = await db
+      .from("merchant_qr_codes")
+      .select("id, label, loyalty_program_id")
+      .eq("merchant_id", merchant.id)
+      .eq("kind", "main")
+      .maybeSingle();
+    pointOfSale = data;
+  }
+
+  if (!pointOfSale || !pointOfSale.loyalty_program_id) {
     return NextResponse.json(
       { error: "Ce commerce n'a pas encore configuré de programme de fidélité." },
       { status: 404 }
     );
   }
+
+  const programId = pointOfSale.loyalty_program_id;
 
   let customerId: string | null = null;
 
@@ -119,7 +140,7 @@ export async function POST(request: Request) {
     .from("loyalty_cards")
     .select("public_id")
     .eq("merchant_id", merchant.id)
-    .eq("loyalty_program_id", program.id)
+    .eq("loyalty_program_id", programId)
     .eq("customer_id", customerId)
     .maybeSingle();
 
@@ -131,9 +152,10 @@ export async function POST(request: Request) {
     .from("loyalty_cards")
     .insert({
       merchant_id: merchant.id,
-      loyalty_program_id: program.id,
+      loyalty_program_id: programId,
       customer_id: customerId,
-      source: source || null,
+      merchant_qr_code_id: pointOfSale.id,
+      source: pointOfSale.label,
     })
     .select("public_id")
     .single();

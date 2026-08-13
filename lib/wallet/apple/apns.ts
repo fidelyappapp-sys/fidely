@@ -8,7 +8,12 @@ function getProvider(): apn.Provider {
       cert: Buffer.from(process.env.APPLE_SIGNER_CERT!, "base64").toString("utf8"),
       key: Buffer.from(process.env.APPLE_SIGNER_KEY!, "base64").toString("utf8"),
       passphrase: process.env.APPLE_SIGNER_KEY_PASSPHRASE || undefined,
-      production: process.env.NODE_ENV === "production",
+      // Always true: a Pass Type ID certificate has no sandbox variant —
+      // node-apn's own cert validation throws synchronously ("certificate
+      // does not support configured environment") if this is false, which
+      // happened on every local `next dev` run since NODE_ENV isn't
+      // "production" there.
+      production: true,
     });
   }
   return providerSingleton;

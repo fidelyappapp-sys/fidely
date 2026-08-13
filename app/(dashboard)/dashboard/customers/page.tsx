@@ -1,20 +1,39 @@
 import Link from "next/link";
 import { requireMerchantContext } from "@/lib/merchant";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { PosSelector } from "@/components/dashboard/PosSelector";
 
-export default async function CustomersPage() {
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pos?: string }>;
+}) {
   const merchant = await requireMerchantContext();
+  const { pos } = await searchParams;
   // customers has no RLS policies by design (server-side only) — the RLS
   // client's embedded `customers(...)` join silently returns null, so this
   // page needs the service-role client. merchant_id scoping below (already
   // authorized via requireMerchantContext) keeps this tenant-scoped.
   const supabase = createServiceRoleClient();
 
-  const { data: cards } = await supabase
+  const { data: pointsOfSale } = await supabase
+    .from("merchant_qr_codes")
+    .select("id, label, city")
+    .eq("merchant_id", merchant.merchantId)
+    .in("kind", ["main", "join_source"])
+    .order("created_at", { ascending: true });
+
+  let cardsQuery = supabase
     .from("loyalty_cards")
-    .select("id, points, created_at, customers(full_name, email, phone)")
+    .select("id, points, created_at, customers(full_name, email, phone), merchant_qr_codes(label)")
     .eq("merchant_id", merchant.merchantId)
     .order("created_at", { ascending: false });
+
+  if (pos) {
+    cardsQuery = cardsQuery.eq("merchant_qr_code_id", pos);
+  }
+
+  const { data: cards } = await cardsQuery;
 
   const topCustomers = [...(cards ?? [])]
     .filter((card) => card.points > 0)
@@ -32,6 +51,17 @@ export default async function CustomersPage() {
           Page d&apos;inscription →
         </Link>
       </div>
+
+      {pointsOfSale && pointsOfSale.length > 1 && (
+        <div className="mt-4">
+          <PosSelector
+            items={pointsOfSale.map((row) => ({ id: row.id, label: row.label, city: row.city }))}
+            selectedId={pos ?? null}
+            basePath="/dashboard/customers"
+            allowAll
+          />
+        </div>
+      )}
 
       {topCustomers.length > 0 && (
         <div className="mt-6">
@@ -65,6 +95,7 @@ export default async function CustomersPage() {
             <tr>
               <th className="px-4 py-3 font-medium">Client</th>
               <th className="px-4 py-3 font-medium">Contact</th>
+              <th className="px-4 py-3 font-medium">Point de vente</th>
               <th className="px-4 py-3 font-medium">Points</th>
               <th className="px-4 py-3 font-medium">Inscrit le</th>
             </tr>
@@ -76,6 +107,7 @@ export default async function CustomersPage() {
                 email: string | null;
                 phone: string | null;
               } | null;
+              const pointOfSale = card.merchant_qr_codes as unknown as { label: string } | null;
               return (
                 <tr key={card.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
@@ -89,6 +121,7 @@ export default async function CustomersPage() {
                   <td className="px-4 py-3 text-gray-600">
                     {customer?.email || customer?.phone || "—"}
                   </td>
+                  <td className="px-4 py-3 text-gray-500">{pointOfSale?.label ?? "—"}</td>
                   <td className="px-4 py-3">{card.points}</td>
                   <td className="px-4 py-3 text-gray-500">
                     {new Date(card.created_at).toLocaleDateString("fr-FR")}
@@ -98,7 +131,7 @@ export default async function CustomersPage() {
             })}
             {(!cards || cards.length === 0) && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                   Aucun client pour le moment. Partagez votre lien d&apos;inscription.
                 </td>
               </tr>

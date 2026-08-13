@@ -3,19 +3,25 @@ import { requireMerchantContext } from "@/lib/merchant";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ProgramForm } from "@/components/dashboard/ProgramForm";
 import { CardCustomizer } from "@/components/dashboard/CardCustomizer";
+import { PosSelector } from "@/components/dashboard/PosSelector";
+import { CityEditor } from "@/components/dashboard/CityEditor";
 
-export default async function ProgramPage() {
+export default async function ProgramPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pos?: string }>;
+}) {
   const merchant = await requireMerchantContext();
+  const { pos } = await searchParams;
   const supabase = await createServerSupabaseClient();
 
-  const [{ data: program }, { data: merchantRow }] = await Promise.all([
+  const [{ data: pointsOfSale }, { data: merchantRow }] = await Promise.all([
     supabase
-      .from("loyalty_programs")
-      .select(
-        "name, display_mode, points_per_scan, stamp_count, points_per_euro, reward_threshold, reward_description"
-      )
+      .from("merchant_qr_codes")
+      .select("id, label, city, kind, loyalty_program_id")
       .eq("merchant_id", merchant.merchantId)
-      .single(),
+      .in("kind", ["main", "join_source"])
+      .order("created_at", { ascending: true }),
     supabase
       .from("merchants")
       .select(
@@ -24,6 +30,24 @@ export default async function ProgramPage() {
       .eq("id", merchant.merchantId)
       .single(),
   ]);
+
+  const selectedPos =
+    pointsOfSale?.find((row) => row.id === pos) ??
+    pointsOfSale?.find((row) => row.kind === "main") ??
+    pointsOfSale?.[0] ??
+    null;
+
+  if (!selectedPos || !selectedPos.loyalty_program_id) {
+    return <p className="text-sm text-red-600">Point de vente introuvable.</p>;
+  }
+
+  const { data: program } = await supabase
+    .from("loyalty_programs")
+    .select(
+      "id, name, display_mode, points_per_scan, stamp_count, points_per_euro, reward_threshold, reward_description"
+    )
+    .eq("id", selectedPos.loyalty_program_id)
+    .single();
 
   if (!program) {
     return <p className="text-sm text-red-600">Programme introuvable.</p>;
@@ -34,10 +58,25 @@ export default async function ProgramPage() {
       <div>
         <h1 className="text-2xl font-semibold">Programme de fidélité</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Ces réglages s&apos;appliquent à toutes les cartes de vos clients.
+          Chaque point de vente a son propre programme, indépendant des autres.
         </p>
+
+        {pointsOfSale && pointsOfSale.length > 1 && (
+          <div className="mt-4">
+            <PosSelector
+              items={pointsOfSale.map((row) => ({ id: row.id, label: row.label, city: row.city }))}
+              selectedId={selectedPos.id}
+              basePath="/dashboard/program"
+            />
+          </div>
+        )}
+
+        <div className="mt-4">
+          <CityEditor id={selectedPos.id} city={selectedPos.city} />
+        </div>
+
         <div className="mt-8">
-          <ProgramForm program={program} />
+          <ProgramForm program={program} programId={program.id} sector={merchantRow?.sector ?? null} />
         </div>
 
         <div className="mt-12">
@@ -45,7 +84,7 @@ export default async function ProgramPage() {
             href="/dashboard/qr-codes"
             className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
           >
-            Gérer vos QR codes (inscription, offres) →
+            Gérer vos QR codes / points de vente →
           </Link>
         </div>
       </div>
@@ -60,6 +99,8 @@ export default async function ProgramPage() {
             businessName={merchant.businessName}
             displayMode={program.display_mode}
             stampCount={program.stamp_count}
+            rewardThreshold={program.reward_threshold}
+            rewardDescription={program.reward_description}
             initialColor={merchantRow?.brand_color ?? merchant.brandColor}
             initialTextColor={merchantRow?.text_color ?? null}
             initialStampStyle={merchantRow?.stamp_style ?? "circle"}

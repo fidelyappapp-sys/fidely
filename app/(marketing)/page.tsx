@@ -6,6 +6,7 @@ import { Reveal } from "@/components/marketing/Reveal";
 import { HeroVisual } from "@/components/marketing/HeroVisual";
 import { KeyStats } from "@/components/marketing/KeyStats";
 import { CardsCarousel } from "@/components/marketing/CardsCarousel";
+import { OffersSection } from "@/components/marketing/OffersSection";
 
 const features = [
   {
@@ -113,6 +114,10 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <Reveal>
+        <OffersSection />
+      </Reveal>
 
       <Reveal>
         <KeyStats />

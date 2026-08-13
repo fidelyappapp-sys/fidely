@@ -5,13 +5,18 @@ import { urlQrDataUrl } from "@/lib/qr/generate";
 import { buildJoinUrl } from "@/lib/env";
 import { getMerchantQrCodes } from "@/lib/qrCodesData";
 import { QrCodeManager } from "@/components/dashboard/QrCodeManager";
+import { PointOfSaleManager } from "@/components/dashboard/PointOfSaleManager";
+import { CityEditor } from "@/components/dashboard/CityEditor";
 
 export default async function QrCodesPage() {
   const merchant = await requireMerchantContext();
   const supabase = await createServerSupabaseClient();
 
   const qrRows = await getMerchantQrCodes(supabase, merchant.merchantId);
-  const joinUrl = buildJoinUrl(merchant.slug);
+  const mainRow = qrRows.find((row) => row.kind === "main") ?? null;
+  // Fallback for the unlikely case a merchant predates the 0023 backfill —
+  // keeps the "Rejoindre" QR functional even without a stored row.
+  const joinUrl = mainRow?.targetUrl || buildJoinUrl(merchant.slug);
 
   const [joinQr, qrCodes] = await Promise.all([
     urlQrDataUrl(joinUrl),
@@ -56,16 +61,21 @@ export default async function QrCodesPage() {
             Télécharger
           </a>
         </div>
+        {mainRow && (
+          <div className="mt-4 max-w-xs">
+            <CityEditor id={mainRow.id} city={mainRow.city} />
+          </div>
+        )}
       </section>
 
       <section>
-        <h2 className="font-semibold text-gray-900">QR fidélité — autre source</h2>
+        <h2 className="font-semibold text-gray-900">Points de vente</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Même comportement que le QR &quot;Rejoindre&quot; (inscription + carte de fidélité), mais associé à un
-          deuxième point de vente ou une offre spéciale pour savoir d&apos;où viennent vos clients.
+          Même comportement que le QR &quot;Rejoindre&quot; (inscription + carte de fidélité), mais avec son
+          propre programme de fidélité et sa ville — pour un deuxième point de vente ou une offre spéciale.
         </p>
         <div className="mt-4">
-          <QrCodeManager kind="join_source" items={joinSourceQrCodes} />
+          <PointOfSaleManager items={joinSourceQrCodes} />
         </div>
       </section>
 
@@ -75,7 +85,7 @@ export default async function QrCodesPage() {
           Créez un QR vers n&apos;importe quel lien.
         </p>
         <div className="mt-4">
-          <QrCodeManager kind="custom" items={customQrCodes} />
+          <QrCodeManager items={customQrCodes} />
         </div>
       </section>
     </div>

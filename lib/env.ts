@@ -28,10 +28,11 @@ export function appBaseUrl() {
   return process.env.APP_BASE_URL ?? "http://localhost:3000";
 }
 
-// The join page URL for a merchant, optionally tagged with an acquisition
-// source (second point of sale, special offer) carried through as a query
-// param and recorded on the resulting loyalty_cards row.
-export function buildJoinUrl(slug: string, source?: string) {
+// The join page URL for a merchant, optionally tagged with a point of sale
+// (merchant_qr_codes.id) carried through as a query param and used to
+// resolve which loyalty program/point of sale the resulting card belongs
+// to. Omitted for the merchant's "main" point of sale.
+export function buildJoinUrl(slug: string, pointOfSaleId?: string) {
   const url = `${appBaseUrl()}/join/${slug}`;
-  return source ? `${url}?source=${encodeURIComponent(source)}` : url;
+  return pointOfSaleId ? `${url}?source=${encodeURIComponent(pointOfSaleId)}` : url;
 }

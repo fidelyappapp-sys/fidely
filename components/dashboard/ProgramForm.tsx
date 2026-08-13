@@ -1,12 +1,25 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, type ReactNode } from "react";
 import { updateProgram, type ProgramActionState } from "@/lib/actions/program";
+import { getRewardSuggestions } from "@/lib/rewardSuggestions";
+import type { SectorKey } from "@/lib/supabase/types";
 
 const initialState: ProgramActionState = {};
 
 export function ProgramForm({
   program,
+  sector = null,
+  action = updateProgram,
+  submitLabel = "Enregistrer",
+  // Which loyalty_programs row this edits — required by updateProgram to
+  // target a single row (a merchant can have several now, one per point of
+  // sale). Omitted when this form is used to *create* a new program instead
+  // (see createPointOfSale in lib/actions/qrCodes.ts).
+  programId,
+  // Extra fields (e.g. point-of-sale label/city) rendered above the program
+  // fields, submitted as part of the same form — see PointOfSaleManager.
+  extraFields,
 }: {
   program: {
     name: string;
@@ -17,13 +30,27 @@ export function ProgramForm({
     reward_threshold: number;
     reward_description: string;
   };
+  // Used only to pick which quick-suggestion pills to show below the reward
+  // field (set on the personalisation step) — not persisted by this form.
+  sector?: SectorKey | null;
+  // Lets the onboarding wizard reuse this exact component/action and flip
+  // onboarding_completed + redirect on success instead of showing "Programme
+  // mis à jour." inline (see lib/actions/onboarding.ts).
+  action?: (state: ProgramActionState, formData: FormData) => Promise<ProgramActionState>;
+  submitLabel?: string;
+  programId?: string;
+  extraFields?: ReactNode;
 }) {
-  const [state, formAction, pending] = useActionState(updateProgram, initialState);
+  const [state, formAction, pending] = useActionState(action, initialState);
   const [displayMode, setDisplayMode] = useState<"stamps" | "points">(program.display_mode);
+  const [rewardDescription, setRewardDescription] = useState(program.reward_description);
+  const suggestions = getRewardSuggestions(sector);
 
   return (
     <form action={formAction} className="max-w-md space-y-5">
       <input type="hidden" name="displayMode" value={displayMode} />
+      {programId && <input type="hidden" name="programId" value={programId} />}
+      {extraFields}
 
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">
@@ -140,9 +167,27 @@ export function ProgramForm({
           id="rewardDescription"
           name="rewardDescription"
           required
-          defaultValue={program.reward_description}
+          placeholder="1 café offert"
+          value={rewardDescription}
+          onChange={(e) => setRewardDescription(e.target.value)}
           className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
         />
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => setRewardDescription(suggestion)}
+              className={`rounded-full border px-3 py-1 text-xs transition ${
+                rewardDescription === suggestion
+                  ? "border-gray-900 bg-gray-900 text-white"
+                  : "border-gray-200 text-gray-600 hover:border-gray-300"
+              }`}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
       </div>
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
@@ -153,7 +198,7 @@ export function ProgramForm({
         disabled={pending}
         className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
       >
-        {pending ? "Enregistrement..." : "Enregistrer"}
+        {pending ? "Enregistrement..." : submitLabel}
       </button>
     </form>
   );

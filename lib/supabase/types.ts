@@ -105,6 +105,9 @@ export interface Database {
           sector: SectorKey | null;
           name_display_mode: "text" | "logo";
           text_color: string | null;
+          owner_first_name: string | null;
+          owner_last_name: string | null;
+          owner_phone: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["merchants"]["Row"]> & {
@@ -196,7 +199,9 @@ export interface Database {
           merchant_id: string;
           label: string;
           target_url: string;
-          kind: "custom" | "join_source";
+          kind: "custom" | "join_source" | "main";
+          city: string | null;
+          loyalty_program_id: string | null;
           position: number;
           created_at: string;
         };
@@ -274,6 +279,7 @@ export interface Database {
           last_push_message: string | null;
           last_birthday_year: number | null;
           source: string | null;
+          merchant_qr_code_id: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["loyalty_cards"]["Row"]> & {
@@ -613,6 +619,7 @@ export interface Database {
           pass_serial_number: string;
           google_object_id: string | null;
           business_name: string;
+          display_mode: string;
           reward_threshold: number;
           reward_description: string;
           reward_claimed: boolean;

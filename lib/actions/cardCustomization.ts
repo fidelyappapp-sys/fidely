@@ -5,6 +5,7 @@ import { requireMerchantContext } from "@/lib/merchant";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { uploadMerchantCardAsset } from "@/lib/storage";
 import { cardCustomizationSchema } from "@/lib/validation/schemas";
+import { resyncMerchantWalletPasses } from "@/lib/wallet/resync";
 import type { Database } from "@/lib/supabase/types";
 
 type MerchantUpdate = Database["public"]["Tables"]["merchants"]["Update"];
@@ -73,6 +74,12 @@ export async function updateCardCustomization(
   const { error } = await supabase.from("merchants").update(update).eq("id", merchant.merchantId);
 
   if (error) return { error: error.message };
+
+  // Already-issued passes don't pick up the new color/logo/name on their
+  // own — push already-installed Apple passes to re-fetch, and re-sync the
+  // shared Google Wallet class (see lib/wallet/resync.ts for why both are
+  // needed). Never let a resync failure block the merchant's save.
+  await resyncMerchantWalletPasses(merchant.merchantId);
 
   revalidatePath("/dashboard/program");
   revalidatePath("/c", "layout");

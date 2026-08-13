@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireMerchantContext } from "@/lib/merchant";
 import { signOut } from "@/lib/actions/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -23,6 +24,12 @@ const navItems = [
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const merchant = await requireMerchantContext();
+  // A merchant row exists as soon as step 1 of the wizard runs, but the
+  // dashboard shouldn't be reachable until step 3 actually finishes it
+  // (see saveOnboardingProgram in lib/actions/onboarding.ts) — otherwise a
+  // merchant could skip personalisation/program setup by just typing
+  // /dashboard in the address bar mid-wizard.
+  if (!merchant.onboardingCompleted) redirect("/onboarding/personnalisation");
   const supabase = await createServerSupabaseClient();
   const kit = await getKitDeliveryInfo(supabase, merchant.merchantId);
   const showKitBanner = merchant.subscriptionStatus === "active" && kit.method === null;

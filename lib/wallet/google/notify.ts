@@ -8,13 +8,15 @@ import type { PushStatus } from "@/lib/supabase/types";
 export async function notifyGoogleWalletUpdate(
   googleObjectId: string | null,
   points: number,
+  displayMode: "stamps" | "points",
+  qrValue: string,
   message?: { header: string; body: string }
 ): Promise<PushStatus> {
   if (!isGoogleWalletConfigured || !googleObjectId) return "skipped";
 
   try {
     const { patchLoyaltyObjectPoints } = await import("./objects");
-    await patchLoyaltyObjectPoints(googleObjectId, points, message);
+    await patchLoyaltyObjectPoints(googleObjectId, points, displayMode, qrValue, message);
     return "sent";
   } catch (err) {
     console.error("Google wallet push failed", err);

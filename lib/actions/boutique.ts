@@ -6,7 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireMerchantContext, ACTIVE_MERCHANT_COOKIE } from "@/lib/merchant";
 import { addMerchantSchema } from "@/lib/validation/schemas";
 import { stripe } from "@/lib/stripe/client";
-import { isStripeConfigured, appBaseUrl } from "@/lib/env";
+import { isStripeConfigured, appBaseUrl, buildJoinUrl } from "@/lib/env";
 import { NEW_SHOP_KIT_PRODUCT } from "@/lib/boutique";
 
 export interface AddMerchantState {
@@ -74,13 +74,27 @@ export async function createAdditionalMerchant(
   });
   if (staffError) return { error: staffError.message };
 
-  await db.from("loyalty_programs").insert({
-    merchant_id: newMerchant.id,
-    name: parsed.data.businessName,
-    points_per_scan: 1,
-    reward_threshold: 10,
-    reward_description: "Une récompense à définir dans le programme de fidélité",
-  });
+  const { data: program } = await db
+    .from("loyalty_programs")
+    .insert({
+      merchant_id: newMerchant.id,
+      name: parsed.data.businessName,
+      points_per_scan: 1,
+      reward_threshold: 10,
+      reward_description: "Une récompense à définir dans le programme de fidélité",
+    })
+    .select("id")
+    .single();
+
+  if (program) {
+    await db.from("merchant_qr_codes").insert({
+      merchant_id: newMerchant.id,
+      label: "Point de vente principal",
+      target_url: buildJoinUrl(slug),
+      kind: "main",
+      loyalty_program_id: program.id,
+    });
+  }
 
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_MERCHANT_COOKIE, newMerchant.id, {

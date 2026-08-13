@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStaffContextOrNull } from "@/lib/merchant";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { adjustPointsSchema } from "@/lib/validation/schemas";
+import { signedQrPayload } from "@/lib/qr/generate";
 import { notifyAppleWalletUpdate } from "@/lib/wallet/apple/notify";
 import { notifyGoogleWalletUpdate } from "@/lib/wallet/google/notify";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -39,7 +40,9 @@ export async function POST(request: Request) {
 
   const { data: card } = await db
     .from("loyalty_cards")
-    .select("id, merchant_id, points, pass_serial_number, google_object_id, customers(full_name)")
+    .select(
+      "id, public_id, merchant_id, points, pass_serial_number, google_object_id, customers(full_name), loyalty_programs(display_mode)"
+    )
     .eq("public_id", parsed.data.publicId)
     .maybeSingle();
 
@@ -90,9 +93,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Impossible de mettre à jour les points." }, { status: 500 });
   }
 
+  const program = card.loyalty_programs as unknown as { display_mode: "stamps" | "points" } | null;
+
   await Promise.allSettled([
     notifyAppleWalletUpdate(card.pass_serial_number),
-    notifyGoogleWalletUpdate(card.google_object_id, newBalance),
+    notifyGoogleWalletUpdate(
+      card.google_object_id,
+      newBalance,
+      program?.display_mode ?? "stamps",
+      signedQrPayload(card.public_id)
+    ),
   ]);
 
   const customer = card.customers as unknown as { full_name: string | null } | null;

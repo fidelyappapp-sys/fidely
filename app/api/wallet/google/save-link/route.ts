@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      "id, public_id, points, google_object_id, merchants(slug, business_name, brand_color, logo_url), loyalty_programs(reward_threshold, reward_description)"
+      "id, public_id, points, google_object_id, merchants(slug, business_name, brand_color, logo_url), loyalty_programs(display_mode, reward_threshold, reward_description), merchant_qr_codes(city)"
     )
     .eq("public_id", publicId)
     .maybeSingle();
@@ -37,9 +37,11 @@ export async function GET(request: Request) {
     logo_url: string | null;
   } | null;
   const program = card.loyalty_programs as unknown as {
+    display_mode: "stamps" | "points";
     reward_threshold: number;
     reward_description: string;
   } | null;
+  const pointOfSale = card.merchant_qr_codes as unknown as { city: string | null } | null;
 
   if (!merchant || !program) {
     return NextResponse.json({ error: "Programme introuvable." }, { status: 404 });
@@ -67,7 +69,6 @@ export async function GET(request: Request) {
         merchantSlug: merchant.slug,
         businessName: merchant.business_name,
         brandColorHex: merchant.brand_color,
-        rewardDescription: program.reward_description,
         logoUrl: merchant.logo_url,
       });
 
@@ -75,9 +76,11 @@ export async function GET(request: Request) {
         classId,
         publicId: card.public_id,
         points: card.points,
+        displayMode: program.display_mode,
         rewardThreshold: program.reward_threshold,
         rewardDescription: program.reward_description,
         qrValue: signedQrPayload(card.public_id),
+        city: pointOfSale?.city,
       });
 
       await db.from("loyalty_cards").update({ google_object_id: objectId }).eq("id", card.id);

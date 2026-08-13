@@ -1,6 +1,17 @@
 import { z } from "zod";
 
-export const onboardingSchema = z.object({
+// Step 1 of the onboarding wizard (see app/(onboarding)/onboarding) — just
+// enough to create the merchant row. Color, logo, program and reward are
+// filled in on later steps, reusing cardCustomizationSchema/programUpdateSchema.
+export const onboardingInfosSchema = z.object({
+  ownerFirstName: z.string().trim().min(1, "Prénom requis").max(80),
+  ownerLastName: z.string().trim().min(1, "Nom requis").max(80),
+  ownerPhone: z
+    .string()
+    .trim()
+    .min(6, "Numéro de téléphone invalide")
+    .max(20)
+    .regex(/^[0-9+\s.-]+$/, "Numéro de téléphone invalide"),
   businessName: z.string().trim().min(2).max(120),
   slug: z
     .string()
@@ -9,13 +20,6 @@ export const onboardingSchema = z.object({
     .min(2)
     .max(60)
     .regex(/^[a-z0-9-]+$/, "Lettres minuscules, chiffres et tirets uniquement"),
-  brandColor: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/, "Couleur hexadécimale invalide")
-    .default("#111827"),
-  pointsPerScan: z.coerce.number().int().min(1).max(100).default(1),
-  rewardThreshold: z.coerce.number().int().min(1).max(1000),
-  rewardDescription: z.string().trim().min(2).max(200),
 });
 
 export const programUpdateSchema = z.discriminatedUnion("displayMode", [
@@ -47,9 +51,10 @@ export const joinSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional()
     .or(z.literal("")),
-  // Which "join_source" QR code (second point of sale, special offer) the
-  // customer scanned, if any — see lib/actions/qrCodes.ts addJoinSourceQrCode.
-  source: z.string().trim().max(80).optional().or(z.literal("")),
+  // Id of the merchant_qr_codes row (point of sale) the customer scanned, if
+  // any — falls back to the merchant's "main" point of sale when absent. See
+  // lib/actions/qrCodes.ts createPointOfSale and app/api/cards/join/route.ts.
+  source: z.string().trim().uuid().optional().or(z.literal("")),
 });
 
 export const scanSchema = z.object({
@@ -167,11 +172,38 @@ export const qrCodeSchema = z.object({
   targetUrl: z.string().trim().url("Lien invalide").max(500),
 });
 
-// A "join_source" QR: same real join/wallet behavior as the main "Rejoindre"
-// QR, tagged with a source label (second point of sale, special offer) — no
-// free-form targetUrl, it's derived from the label via buildJoinUrl.
-export const joinSourceQrCodeSchema = z.object({
-  label: z.string().trim().min(2).max(80),
+// Creating a point of sale: same real join/wallet behavior as the main
+// "Rejoindre" QR, but with its own city and its own dedicated loyalty
+// program — configuring the program is mandatory at creation time, same as
+// the merchant's own onboarding (no "half-configured" point of sale that
+// would need a fallback program). Mirrors programUpdateSchema's shape plus
+// label/city.
+export const createPointOfSaleSchema = z.discriminatedUnion("displayMode", [
+  z.object({
+    displayMode: z.literal("stamps"),
+    label: z.string().trim().min(2).max(80),
+    city: z.string().trim().min(2).max(80),
+    name: z.string().trim().min(2).max(120),
+    pointsPerScan: z.coerce.number().int().min(1).max(100),
+    stampCount: z.coerce.number().int().min(1).max(20),
+    rewardThreshold: z.coerce.number().int().min(1).max(1000),
+    rewardDescription: z.string().trim().min(2).max(200),
+  }),
+  z.object({
+    displayMode: z.literal("points"),
+    label: z.string().trim().min(2).max(80),
+    city: z.string().trim().min(2).max(80),
+    name: z.string().trim().min(2).max(120),
+    pointsPerEuro: z.coerce.number().positive().max(1000),
+    rewardThreshold: z.coerce.number().int().min(1).max(100_000),
+    rewardDescription: z.string().trim().min(2).max(200),
+  }),
+]);
+
+// Editing just the city of an existing point of sale (main or join_source).
+export const updatePointOfSaleCitySchema = z.object({
+  id: z.string().trim().uuid(),
+  city: z.string().trim().min(2).max(80),
 });
 
 export const shippingAddressFields = {

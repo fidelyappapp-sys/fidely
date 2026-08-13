@@ -28,7 +28,7 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      "public_id, points, pass_serial_number, pass_auth_token, created_at, customers(full_name, phone), merchants(business_name, brand_color, text_color, logo_url, background_photo_url, background_photo_enabled), loyalty_programs(display_mode, reward_threshold, reward_description)"
+      "public_id, points, pass_serial_number, pass_auth_token, created_at, customers(full_name, phone), merchants(business_name, brand_color, text_color, logo_url, background_photo_url, background_photo_enabled), loyalty_programs(display_mode, reward_threshold, reward_description), merchant_qr_codes(city)"
     )
     .eq("pass_serial_number", serialNumber)
     .maybeSingle();
@@ -56,6 +56,7 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
     reward_threshold: number;
     reward_description: string;
   } | null;
+  const pointOfSale = card.merchant_qr_codes as unknown as { city: string | null } | null;
   const customer = card.customers as unknown as {
     full_name: string | null;
     phone: string | null;
@@ -89,11 +90,16 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
 
   const isStamps = program.display_mode === "stamps";
 
-  // No headerField for the points/tampons count: storeCard's fixed layout
-  // renders headerFields above the strip image, but the customizer's photo
-  // banner is meant to end before that count, not behind it — so the count
-  // only lives in secondaryFields below, and primaryFields (reward) is the
-  // only text overlaid on the strip, same as a typical loyalty card photo.
+  // headerFields renders above the strip image. Deliberately left empty for
+  // the points/tampons count (the customizer's photo banner is meant to end
+  // before that count, not behind it — see secondaryFields below) — but a
+  // short city name is exactly what this slot is for on a typical loyalty
+  // card, and it's the only way to tell apart two cards from the same
+  // merchant's different points of sale in the wallet app.
+  if (pointOfSale?.city) {
+    pass.headerFields.push({ key: "city", label: "", value: pointOfSale.city });
+  }
+
   pass.primaryFields.push({
     key: "reward",
     label: "RÉCOMPENSE",

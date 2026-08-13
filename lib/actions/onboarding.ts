@@ -2,15 +2,24 @@
 
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
-import { onboardingSchema } from "@/lib/validation/schemas";
-import { isStripeConfigured } from "@/lib/env";
+import { onboardingInfosSchema } from "@/lib/validation/schemas";
+import { isStripeConfigured, buildJoinUrl } from "@/lib/env";
 import { stripe } from "@/lib/stripe/client";
+import { requireMerchantContext } from "@/lib/merchant";
+import { updateCardCustomization, type CardCustomizationState } from "@/lib/actions/cardCustomization";
+import { updateProgram, type ProgramActionState } from "@/lib/actions/program";
 
 export interface OnboardingState {
   error?: string;
 }
 
-export async function completeOnboarding(
+// Step 1 — creates the merchant in draft form (onboarding_completed: false)
+// with just enough to move on. Brand color, logo, sector, program mode and
+// reward are all filled in on the next two steps, which edit this same row
+// via the exact same actions/components used later in the dashboard
+// (CardCustomizer, ProgramForm) — see saveOnboardingPersonalisation/
+// saveOnboardingProgram below.
+export async function createMerchantDraft(
   _prevState: OnboardingState,
   formData: FormData
 ): Promise<OnboardingState> {
@@ -21,21 +30,19 @@ export async function completeOnboarding(
 
   if (!user) redirect("/login");
 
-  const parsed = onboardingSchema.safeParse({
+  const parsed = onboardingInfosSchema.safeParse({
+    ownerFirstName: formData.get("ownerFirstName"),
+    ownerLastName: formData.get("ownerLastName"),
+    ownerPhone: formData.get("ownerPhone"),
     businessName: formData.get("businessName"),
     slug: formData.get("slug"),
-    brandColor: formData.get("brandColor") || undefined,
-    pointsPerScan: formData.get("pointsPerScan") || undefined,
-    rewardThreshold: formData.get("rewardThreshold"),
-    rewardDescription: formData.get("rewardDescription"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
-  const { businessName, slug, brandColor, pointsPerScan, rewardThreshold, rewardDescription } =
-    parsed.data;
+  const { ownerFirstName, ownerLastName, ownerPhone, businessName, slug } = parsed.data;
 
   // Onboarding creates merchants/merchant_staff rows, which have no
   // client-facing insert RLS policy (chicken-and-egg: is_merchant_staff()
@@ -60,8 +67,10 @@ export async function completeOnboarding(
       auth_user_id: user.id,
       business_name: businessName,
       slug,
-      brand_color: brandColor,
-      onboarding_completed: true,
+      owner_first_name: ownerFirstName,
+      owner_last_name: ownerLastName,
+      owner_phone: ownerPhone,
+      onboarding_completed: false,
     })
     .select("id")
     .single();
@@ -80,16 +89,39 @@ export async function completeOnboarding(
     return { error: staffError.message };
   }
 
-  const { error: programError } = await db.from("loyalty_programs").insert({
+  // reward_threshold/reward_description have no DB default (unlike
+  // display_mode/stamp_count/points_per_scan) — placeholder values here,
+  // required to be replaced with something real by saveOnboardingProgram's
+  // validation (programUpdateSchema requires reward_description.min(2))
+  // before onboarding_completed can flip to true.
+  const { data: program, error: programError } = await db
+    .from("loyalty_programs")
+    .insert({
+      merchant_id: merchant.id,
+      name: businessName,
+      reward_threshold: 10,
+      reward_description: "",
+    })
+    .select("id")
+    .single();
+
+  if (programError || !program) {
+    return { error: programError?.message ?? "Impossible de créer le programme de fidélité." };
+  }
+
+  // The "main" point of sale — historically just a virtual /join/<slug> URL,
+  // now a real row so it can carry a city and a dedicated program like any
+  // other point of sale (see supabase/migrations/0023_points_of_sale.sql).
+  const { error: posError } = await db.from("merchant_qr_codes").insert({
     merchant_id: merchant.id,
-    name: businessName,
-    points_per_scan: pointsPerScan,
-    reward_threshold: rewardThreshold,
-    reward_description: rewardDescription,
+    label: "Point de vente principal",
+    target_url: buildJoinUrl(slug),
+    kind: "main",
+    loyalty_program_id: program.id,
   });
 
-  if (programError) {
-    return { error: programError.message };
+  if (posError) {
+    return { error: posError.message };
   }
 
   // Best-effort: create the Stripe customer now so /dashboard/billing can
@@ -111,5 +143,35 @@ export async function completeOnboarding(
     }
   }
 
-  redirect("/dashboard/billing");
+  redirect("/onboarding/personnalisation");
+}
+
+// Step 2 — thin wrapper around the same action the dashboard's card
+// customizer uses, so the two never drift apart. Only difference here is
+// where it sends the merchant next.
+export async function saveOnboardingPersonalisation(
+  prevState: CardCustomizationState,
+  formData: FormData
+): Promise<CardCustomizationState> {
+  const result = await updateCardCustomization(prevState, formData);
+  if (result.error) return result;
+  redirect("/onboarding/programme");
+}
+
+// Step 3 — same idea, wrapping the dashboard's program form action, then
+// flipping onboarding_completed once a real reward has been saved. Dashboard
+// access unlocks right here; step 4 (notifications) is a one-screen teaser
+// with nothing to configure, not a gate — skipping it costs nothing.
+export async function saveOnboardingProgram(
+  prevState: ProgramActionState,
+  formData: FormData
+): Promise<ProgramActionState> {
+  const result = await updateProgram(prevState, formData);
+  if (result.error) return result;
+
+  const merchant = await requireMerchantContext();
+  const db = createServiceRoleClient();
+  await db.from("merchants").update({ onboarding_completed: true }).eq("id", merchant.merchantId);
+
+  redirect("/onboarding/notifications");
 }

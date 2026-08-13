@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isStripeConfigured } from "@/lib/env";
 import { reportScanUsage } from "@/lib/stripe/usage";
+import { signedQrPayload } from "@/lib/qr/generate";
 import { notifyAppleWalletUpdate } from "@/lib/wallet/apple/notify";
 import { notifyGoogleWalletUpdate } from "@/lib/wallet/google/notify";
 import type { Database } from "@/lib/supabase/types";
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   const { data: failedScans } = await db
     .from("scan_events")
     .select(
-      "id, stripe_usage_reported, apple_push_status, google_push_status, loyalty_cards(pass_serial_number, google_object_id, points, merchants(stripe_customer_id))"
+      "id, stripe_usage_reported, apple_push_status, google_push_status, loyalty_cards(public_id, pass_serial_number, google_object_id, points, merchants(stripe_customer_id), loyalty_programs(display_mode))"
     )
     .gte("created_at", since)
     .or("stripe_usage_reported.eq.false,apple_push_status.eq.failed,google_push_status.eq.failed")
@@ -35,10 +36,12 @@ export async function GET(request: Request) {
 
   for (const scan of failedScans ?? []) {
     const card = scan.loyalty_cards as unknown as {
+      public_id: string;
       pass_serial_number: string;
       google_object_id: string | null;
       points: number;
       merchants: { stripe_customer_id: string | null } | null;
+      loyalty_programs: { display_mode: "stamps" | "points" } | null;
     } | null;
     if (!card) continue;
 
@@ -62,7 +65,12 @@ export async function GET(request: Request) {
     }
 
     if (scan.google_push_status === "failed") {
-      updates.google_push_status = await notifyGoogleWalletUpdate(card.google_object_id, card.points);
+      updates.google_push_status = await notifyGoogleWalletUpdate(
+        card.google_object_id,
+        card.points,
+        card.loyalty_programs?.display_mode ?? "stamps",
+        signedQrPayload(card.public_id)
+      );
     }
 
     if (Object.keys(updates).length > 0) {

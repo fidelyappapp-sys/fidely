@@ -5,7 +5,8 @@ export interface CustomQrCodeRow {
   id: string;
   label: string;
   targetUrl: string;
-  kind: "custom" | "join_source";
+  kind: "custom" | "join_source" | "main";
+  city: string | null;
 }
 
 // merchant_qr_codes only exists once migration 0006_qr_codes.sql has been
@@ -16,7 +17,7 @@ export async function getMerchantQrCodes(
 ): Promise<CustomQrCodeRow[]> {
   const { data, error } = await supabase
     .from("merchant_qr_codes")
-    .select("id, label, target_url, kind")
+    .select("id, label, target_url, kind, city")
     .eq("merchant_id", merchantId)
     .order("position", { ascending: true });
 
@@ -25,6 +26,7 @@ export async function getMerchantQrCodes(
     id: row.id,
     label: row.label,
     targetUrl: row.target_url,
-    kind: row.kind as "custom" | "join_source",
+    kind: row.kind as "custom" | "join_source" | "main",
+    city: row.city,
   }));
 }

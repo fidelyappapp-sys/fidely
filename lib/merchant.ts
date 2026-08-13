@@ -11,6 +11,7 @@ export interface MerchantContext {
   brandColor: string;
   logoUrl: string | null;
   subscriptionStatus: string;
+  onboardingCompleted: boolean;
   role: MerchantStaffRole;
   userId: string;
   // Every commerce this user belongs to — length 1 for the common case.
@@ -40,7 +41,9 @@ export async function requireMerchantContext(): Promise<MerchantContext> {
 
   const { data: staffRows } = await supabase
     .from("merchant_staff")
-    .select("role, merchant_id, merchants(business_name, slug, brand_color, logo_url, subscription_status)")
+    .select(
+      "role, merchant_id, merchants(business_name, slug, brand_color, logo_url, subscription_status, onboarding_completed)"
+    )
     .eq("auth_user_id", user.id);
 
   if (!staffRows || staffRows.length === 0) redirect("/onboarding");
@@ -57,6 +60,7 @@ export async function requireMerchantContext(): Promise<MerchantContext> {
     brand_color: string;
     logo_url: string | null;
     subscription_status: string;
+    onboarding_completed: boolean;
   };
 
   return {
@@ -66,6 +70,7 @@ export async function requireMerchantContext(): Promise<MerchantContext> {
     brandColor: merchant.brand_color,
     logoUrl: merchant.logo_url,
     subscriptionStatus: merchant.subscription_status,
+    onboardingCompleted: merchant.onboarding_completed,
     role: staffRow.role as MerchantStaffRole,
     userId: user.id,
     allMerchants: staffRows
@@ -74,6 +79,46 @@ export async function requireMerchantContext(): Promise<MerchantContext> {
         merchantId: row.merchant_id,
         businessName: (row.merchants as unknown as { business_name: string }).business_name,
       })),
+  };
+}
+
+export interface OnboardingMerchant {
+  merchantId: string;
+  businessName: string;
+  onboardingCompleted: boolean;
+}
+
+// Lookup used by the onboarding wizard steps (app/(onboarding)/onboarding/*)
+// — unlike requireMerchantContext(), a merchant with onboarding_completed:
+// false is an expected, normal state here (that's the whole point of the
+// wizard), so this never redirects on that basis. Returns null before step 1
+// has created the merchant row at all.
+export async function getOnboardingMerchant(): Promise<OnboardingMerchant | null> {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { data: staffRows } = await supabase
+    .from("merchant_staff")
+    .select("merchant_id, merchants(business_name, onboarding_completed)")
+    .eq("auth_user_id", user.id)
+    .limit(1);
+
+  const staffRow = staffRows?.[0];
+  if (!staffRow?.merchants) return null;
+
+  const merchant = staffRow.merchants as unknown as {
+    business_name: string;
+    onboarding_completed: boolean;
+  };
+
+  return {
+    merchantId: staffRow.merchant_id,
+    businessName: merchant.business_name,
+    onboardingCompleted: merchant.onboarding_completed,
   };
 }
 

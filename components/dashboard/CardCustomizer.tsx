@@ -5,6 +5,7 @@ import { updateCardCustomization, type CardCustomizationState } from "@/lib/acti
 import { StampIcon, STAMP_STYLES } from "@/components/StampIcon";
 import { SectorIcon, SECTORS } from "@/components/SectorIcon";
 import { ColorPicker } from "@/components/dashboard/ColorPicker";
+import { QrGlyph } from "@/components/marketing/QrGlyph";
 import { suggestTextColor } from "@/lib/color";
 import type { StampIconKey, SectorKey } from "@/lib/supabase/types";
 
@@ -23,6 +24,8 @@ export function CardCustomizer({
   businessName,
   displayMode,
   stampCount,
+  rewardThreshold,
+  rewardDescription,
   initialColor,
   initialTextColor,
   initialStampStyle,
@@ -31,10 +34,17 @@ export function CardCustomizer({
   initialBackgroundPhotoUrl,
   initialBackgroundPhotoEnabled,
   initialNameDisplayMode,
+  action = updateCardCustomization,
+  submitLabel = "Enregistrer la carte",
 }: {
   businessName: string;
   displayMode: "stamps" | "points";
   stampCount: number;
+  // Shown in the preview's reward/objectif row so it matches the structure
+  // of the real Apple/Google pass and the public card (CardPoints.tsx),
+  // instead of the old hardcoded example with no reward shown at all.
+  rewardThreshold: number;
+  rewardDescription: string;
   initialColor: string;
   // Null until a merchant explicitly picks one — the picker then starts
   // from a luminance-based suggestion instead (see suggestTextColor).
@@ -45,8 +55,13 @@ export function CardCustomizer({
   initialBackgroundPhotoUrl: string | null;
   initialBackgroundPhotoEnabled: boolean;
   initialNameDisplayMode: "text" | "logo";
+  // Lets the onboarding wizard reuse this exact component/action and just
+  // redirect to the next step on success instead of showing "Carte mise à
+  // jour." inline (see lib/actions/onboarding.ts).
+  action?: (state: CardCustomizationState, formData: FormData) => Promise<CardCustomizationState>;
+  submitLabel?: string;
 }) {
-  const [state, formAction, pending] = useActionState(updateCardCustomization, initialState);
+  const [state, formAction, pending] = useActionState(action, initialState);
   const [color, setColor] = useState(initialColor);
   const [textColor, setTextColor] = useState(initialTextColor ?? suggestTextColor(initialColor));
   const [stampStyle, setStampStyle] = useState<StampIconKey>(initialStampStyle);
@@ -60,6 +75,9 @@ export function CardCustomizer({
 
   const showLogoOnCard = nameDisplayMode === "logo" && Boolean(logoPreview);
   const previewFilled = Math.max(1, Math.round(stampCount * 0.4));
+  const previewPoints = Math.max(1, Math.round(rewardThreshold * 0.4));
+  const previewProgress = Math.min(100, (previewPoints / Math.max(1, rewardThreshold)) * 100);
+  const rewardCaption = rewardDescription || "récompense à définir";
   const showPhotoBanner = backgroundEnabled && Boolean(backgroundPreview);
 
   return (
@@ -151,6 +169,13 @@ export function CardCustomizer({
           {nameDisplayMode === "logo" && !logoPreview && (
             <p className="mt-2 text-xs text-amber-600">
               Ajoutez un logo pour qu&apos;il remplace le texte — en attendant, le nom du commerce reste affiché.
+            </p>
+          )}
+          {nameDisplayMode === "logo" && (
+            <p className="mt-2 text-xs text-gray-500">
+              S&apos;applique à la carte web de vos clients. Apple et Google Wallet affichent toujours le
+              nom du commerce dans leur propre bandeau — aucune plateforme ne permet de le remplacer par
+              un logo.
             </p>
           )}
         </div>
@@ -261,7 +286,7 @@ export function CardCustomizer({
           disabled={pending}
           className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
         >
-          {pending ? "Enregistrement..." : "Enregistrer la carte"}
+          {pending ? "Enregistrement..." : submitLabel}
         </button>
       </form>
 
@@ -322,16 +347,18 @@ export function CardCustomizer({
                   ))}
                 </div>
                 <p className="mt-4 text-xs opacity-70">
-                  Aperçu — {previewFilled}/{stampCount} tampons
+                  Aperçu — {previewFilled}/{stampCount} — {rewardCaption}
                 </p>
               </>
             ) : (
               <>
-                <p className="mt-5 text-3xl font-bold">120</p>
+                <p className="mt-5 text-3xl font-bold">{previewPoints}</p>
                 <div className="mt-3 h-2 rounded-full bg-white/20">
-                  <div className="h-2 w-2/5 rounded-full bg-white" />
+                  <div className="h-2 rounded-full bg-white" style={{ width: `${previewProgress}%` }} />
                 </div>
-                <p className="mt-2 text-xs opacity-70">Aperçu — points cumulés</p>
+                <p className="mt-2 text-xs opacity-70">
+                  Aperçu — {previewPoints}/{rewardThreshold} — {rewardCaption}
+                </p>
               </>
             )}
 
@@ -346,6 +373,16 @@ export function CardCustomizer({
               </div>
             </div>
             <p className="mt-2 text-[10px] opacity-50">Membre depuis {PREVIEW_CUSTOMER.memberSince}</p>
+
+            <div className="mt-5 flex flex-col items-center border-t border-white/10 pt-4">
+              <div className="rounded-xl bg-white p-2">
+                <QrGlyph className="h-14 w-14" />
+              </div>
+              <p className="mt-2 text-[10px] opacity-50">
+                {displayMode === "stamps" ? `${previewFilled}/${stampCount} tampons` : `${previewPoints}/${rewardThreshold} points`}
+                {" — "}QR code réel sur la carte du client
+              </p>
+            </div>
           </div>
         </div>
       </div>

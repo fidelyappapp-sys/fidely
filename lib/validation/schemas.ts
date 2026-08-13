@@ -47,6 +47,9 @@ export const joinSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional()
     .or(z.literal("")),
+  // Which "join_source" QR code (second point of sale, special offer) the
+  // customer scanned, if any — see lib/actions/qrCodes.ts addJoinSourceQrCode.
+  source: z.string().trim().max(80).optional().or(z.literal("")),
 });
 
 export const scanSchema = z.object({
@@ -162,6 +165,13 @@ export const pushSubscribeSchema = z.object({
 export const qrCodeSchema = z.object({
   label: z.string().trim().min(2).max(80),
   targetUrl: z.string().trim().url("Lien invalide").max(500),
+});
+
+// A "join_source" QR: same real join/wallet behavior as the main "Rejoindre"
+// QR, tagged with a source label (second point of sale, special offer) — no
+// free-form targetUrl, it's derived from the label via buildJoinUrl.
+export const joinSourceQrCodeSchema = z.object({
+  label: z.string().trim().min(2).max(80),
 });
 
 export const shippingAddressFields = {

@@ -4,10 +4,13 @@ import { JoinForm } from "@/components/public-card/JoinForm";
 
 export default async function JoinPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ merchantSlug: string }>;
+  searchParams: Promise<{ source?: string }>;
 }) {
   const { merchantSlug } = await params;
+  const { source } = await searchParams;
   const db = createServiceRoleClient();
 
   const { data: merchant } = await db
@@ -41,7 +44,7 @@ export default async function JoinPage({
           )}
         </div>
 
-        <JoinForm merchantSlug={merchantSlug} />
+        <JoinForm merchantSlug={merchantSlug} source={source} />
       </div>
     </div>
   );

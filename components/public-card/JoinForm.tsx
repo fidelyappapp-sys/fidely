@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function JoinForm({ merchantSlug }: { merchantSlug: string }) {
+export function JoinForm({ merchantSlug, source }: { merchantSlug: string; source?: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +24,7 @@ export function JoinForm({ merchantSlug }: { merchantSlug: string }) {
         email: formData.get("email"),
         phone: formData.get("phone"),
         birthDate: formData.get("birthDate"),
+        source,
       }),
     });
 

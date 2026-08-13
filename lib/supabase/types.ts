@@ -196,6 +196,7 @@ export interface Database {
           merchant_id: string;
           label: string;
           target_url: string;
+          kind: "custom" | "join_source";
           position: number;
           created_at: string;
         };
@@ -272,6 +273,7 @@ export interface Database {
           google_object_id: string | null;
           last_push_message: string | null;
           last_birthday_year: number | null;
+          source: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["loyalty_cards"]["Row"]> & {

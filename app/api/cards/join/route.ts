@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { merchantSlug, fullName, email, phone, birthDate } = parsed.data;
+  const { merchantSlug, fullName, email, phone, birthDate, source } = parsed.data;
   const db = createServiceRoleClient();
 
   const { data: merchant } = await db
@@ -133,6 +133,7 @@ export async function POST(request: Request) {
       merchant_id: merchant.id,
       loyalty_program_id: program.id,
       customer_id: customerId,
+      source: source || null,
     })
     .select("public_id")
     .single();

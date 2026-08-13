@@ -27,3 +27,11 @@ export const isEmailConfigured = Boolean(process.env.RESEND_API_KEY);
 export function appBaseUrl() {
   return process.env.APP_BASE_URL ?? "http://localhost:3000";
 }
+
+// The join page URL for a merchant, optionally tagged with an acquisition
+// source (second point of sale, special offer) carried through as a query
+// param and recorded on the resulting loyalty_cards row.
+export function buildJoinUrl(slug: string, source?: string) {
+  const url = `${appBaseUrl()}/join/${slug}`;
+  return source ? `${url}?source=${encodeURIComponent(source)}` : url;
+}

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireMerchantContext } from "@/lib/merchant";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
-import { qrCodeSchema } from "@/lib/validation/schemas";
+import { qrCodeSchema, joinSourceQrCodeSchema } from "@/lib/validation/schemas";
+import { buildJoinUrl } from "@/lib/env";
 
 export interface QrCodeActionState {
   error?: string;
@@ -32,6 +33,39 @@ export async function addQrCode(
     merchant_id: merchant.merchantId,
     label: parsed.data.label,
     target_url: parsed.data.targetUrl,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/qr-codes");
+  return { success: true };
+}
+
+// Same real join/wallet behavior as the main "Rejoindre" QR, tagged with a
+// source (second point of sale, special offer) so joins through it can be
+// distinguished — see joinSourceQrCodeSchema and app/api/cards/join/route.ts.
+export async function addJoinSourceQrCode(
+  _prevState: QrCodeActionState,
+  formData: FormData
+): Promise<QrCodeActionState> {
+  const merchant = await requireMerchantContext();
+  if (merchant.role !== "owner") {
+    return { error: "Seul le propriétaire peut créer des QR codes." };
+  }
+
+  const parsed = joinSourceQrCodeSchema.safeParse({
+    label: formData.get("label"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.from("merchant_qr_codes").insert({
+    merchant_id: merchant.merchantId,
+    label: parsed.data.label,
+    target_url: buildJoinUrl(merchant.slug, parsed.data.label),
+    kind: "join_source",
   });
 
   if (error) return { error: error.message };

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireMerchantContext } from "@/lib/merchant";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { urlQrDataUrl } from "@/lib/qr/generate";
-import { appBaseUrl } from "@/lib/env";
+import { buildJoinUrl } from "@/lib/env";
 import { getMerchantQrCodes } from "@/lib/qrCodesData";
 import { QrCodeManager } from "@/components/dashboard/QrCodeManager";
 
@@ -10,18 +10,21 @@ export default async function QrCodesPage() {
   const merchant = await requireMerchantContext();
   const supabase = await createServerSupabaseClient();
 
-  const customQrRows = await getMerchantQrCodes(supabase, merchant.merchantId);
-  const joinUrl = `${appBaseUrl()}/join/${merchant.slug}`;
+  const qrRows = await getMerchantQrCodes(supabase, merchant.merchantId);
+  const joinUrl = buildJoinUrl(merchant.slug);
 
-  const [joinQr, customQrCodes] = await Promise.all([
+  const [joinQr, qrCodes] = await Promise.all([
     urlQrDataUrl(joinUrl),
     Promise.all(
-      customQrRows.map(async (row) => ({
+      qrRows.map(async (row) => ({
         ...row,
         qrDataUrl: await urlQrDataUrl(row.targetUrl),
       }))
     ),
   ]);
+
+  const joinSourceQrCodes = qrCodes.filter((row) => row.kind === "join_source");
+  const customQrCodes = qrCodes.filter((row) => row.kind === "custom");
 
   return (
     <div className="space-y-12">
@@ -56,12 +59,23 @@ export default async function QrCodesPage() {
       </section>
 
       <section>
-        <h2 className="font-semibold text-gray-900">QR codes personnalisés</h2>
+        <h2 className="font-semibold text-gray-900">QR fidélité — autre source</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Offres spéciales, autre point de vente... créez un QR vers n&apos;importe quel lien.
+          Même comportement que le QR &quot;Rejoindre&quot; (inscription + carte de fidélité), mais associé à un
+          deuxième point de vente ou une offre spéciale pour savoir d&apos;où viennent vos clients.
         </p>
         <div className="mt-4">
-          <QrCodeManager items={customQrCodes} />
+          <QrCodeManager kind="join_source" items={joinSourceQrCodes} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="font-semibold text-gray-900">QR codes personnalisés</h2>
+        <p className="mt-1 text-sm text-gray-600">
+          Créez un QR vers n&apos;importe quel lien.
+        </p>
+        <div className="mt-4">
+          <QrCodeManager kind="custom" items={customQrCodes} />
         </div>
       </section>
     </div>

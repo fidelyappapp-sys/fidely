@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { addQrCode, deleteQrCode, type QrCodeActionState } from "@/lib/actions/qrCodes";
+import { addQrCode, addJoinSourceQrCode, deleteQrCode, type QrCodeActionState } from "@/lib/actions/qrCodes";
 
 interface QrCodeItem {
   id: string;
@@ -13,9 +13,18 @@ interface QrCodeItem {
 
 const initialState: QrCodeActionState = {};
 
-export function QrCodeManager({ items }: { items: QrCodeItem[] }) {
+export function QrCodeManager({
+  items,
+  kind,
+}: {
+  items: QrCodeItem[];
+  kind: "custom" | "join_source";
+}) {
   const router = useRouter();
-  const [addState, addAction, addPending] = useActionState(addQrCode, initialState);
+  const [addState, addAction, addPending] = useActionState(
+    kind === "join_source" ? addJoinSourceQrCode : addQrCode,
+    initialState
+  );
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -69,18 +78,25 @@ export function QrCodeManager({ items }: { items: QrCodeItem[] }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <input
             name="label"
-            placeholder="Nom (ex: Happy Hour)"
+            placeholder={kind === "join_source" ? "Nom (ex: Boutique Bastille)" : "Nom (ex: Happy Hour)"}
             required
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
           />
-          <input
-            name="targetUrl"
-            type="url"
-            placeholder="https://..."
-            required
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
-          />
+          {kind === "custom" && (
+            <input
+              name="targetUrl"
+              type="url"
+              placeholder="https://..."
+              required
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
+            />
+          )}
         </div>
+        {kind === "join_source" && (
+          <p className="text-xs text-gray-500">
+            Ce nom identifie le point de vente ou l&apos;offre — il sera associé à chaque carte créée via ce QR.
+          </p>
+        )}
         {addState.error && <p className="text-sm text-red-600">{addState.error}</p>}
         <button
           type="submit"

@@ -74,11 +74,16 @@ export default async function ProgramPage({
         )}
 
         <div className="mt-4">
-          <CityEditor id={selectedPos.id} city={selectedPos.city} />
+          <CityEditor key={selectedPos.id} id={selectedPos.id} city={selectedPos.city} />
         </div>
 
         <div className="mt-8">
-          <ProgramForm program={program} programId={program.id} sector={merchantRow?.sector ?? null} />
+          <ProgramForm
+            key={selectedPos.id}
+            program={program}
+            programId={program.id}
+            sector={merchantRow?.sector ?? null}
+          />
         </div>
 
         <div className="mt-12">
@@ -98,6 +103,7 @@ export default async function ProgramPage({
         </p>
         <div className="mt-8">
           <CardCustomizer
+            key={selectedPos.id}
             posId={selectedPos.id}
             businessName={merchant.businessName}
             displayMode={program.display_mode}

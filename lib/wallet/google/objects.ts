@@ -6,8 +6,12 @@ function issuerId(): string {
   return process.env.GOOGLE_WALLET_ISSUER_ID!;
 }
 
-export function loyaltyClassId(merchantSlug: string): string {
-  return `${issuerId()}.${merchantSlug.replace(/[^a-zA-Z0-9_-]/g, "_")}_program`;
+// Keyed by point of sale, not merchant — each point of sale gets its own
+// Google Wallet class since 0024_pos_card_design.sql, so its design (color,
+// logo, background) can differ from other points of sale of the same
+// merchant.
+export function loyaltyClassId(pointOfSaleId: string): string {
+  return `${issuerId()}.${pointOfSaleId.replace(/[^a-zA-Z0-9_-]/g, "_")}_program`;
 }
 
 export function loyaltyObjectId(publicId: string): string {
@@ -27,10 +31,10 @@ async function walletRequest(path: string, init: RequestInit) {
   return res;
 }
 
-// Ensures a loyaltyClass exists for the merchant's program (idempotent:
-// insert, and if it already exists — 409 — fall back to update).
+// Ensures a loyaltyClass exists for this point of sale (idempotent: insert,
+// and if it already exists — 409 — fall back to update).
 export async function upsertLoyaltyClass(params: {
-  merchantSlug: string;
+  pointOfSaleId: string;
   businessName: string;
   brandColorHex: string;
   logoUrl: string | null;
@@ -42,11 +46,11 @@ export async function upsertLoyaltyClass(params: {
 }): Promise<string> {
   if (!params.logoUrl) {
     throw new Error(
-      `Google Wallet requires a program logo; merchant "${params.merchantSlug}" has none configured (Paramètres → Logo).`
+      `Google Wallet requires a program logo; point of sale "${params.pointOfSaleId}" has none configured (Paramètres → Logo).`
     );
   }
 
-  const id = loyaltyClassId(params.merchantSlug);
+  const id = loyaltyClassId(params.pointOfSaleId);
   const body = {
     id,
     issuerName: params.businessName,

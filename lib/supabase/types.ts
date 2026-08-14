@@ -202,6 +202,14 @@ export interface Database {
           kind: "custom" | "join_source" | "main";
           city: string | null;
           loyalty_program_id: string | null;
+          brand_color: string | null;
+          text_color: string | null;
+          stamp_style: StampIconKey | null;
+          sector: SectorKey | null;
+          logo_url: string | null;
+          background_photo_url: string | null;
+          background_photo_enabled: boolean | null;
+          name_display_mode: "text" | "logo" | null;
           position: number;
           created_at: string;
         };

@@ -34,6 +34,7 @@ export function CardCustomizer({
   initialBackgroundPhotoUrl,
   initialBackgroundPhotoEnabled,
   initialNameDisplayMode,
+  posId,
   action = updateCardCustomization,
   submitLabel = "Enregistrer la carte",
 }: {
@@ -55,6 +56,10 @@ export function CardCustomizer({
   initialBackgroundPhotoUrl: string | null;
   initialBackgroundPhotoEnabled: boolean;
   initialNameDisplayMode: "text" | "logo";
+  // Which point of sale (merchant_qr_codes row) this edits — required by
+  // updateCardCustomization to target a single point of sale's design,
+  // independent from every other point of sale of the same merchant.
+  posId: string;
   // Lets the onboarding wizard reuse this exact component/action and just
   // redirect to the next step on success instead of showing "Carte mise à
   // jour." inline (see lib/actions/onboarding.ts).
@@ -83,6 +88,7 @@ export function CardCustomizer({
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <form action={formAction} className="space-y-6">
+        <input type="hidden" name="posId" value={posId} />
         <input type="hidden" name="brandColor" value={color} />
         <input type="hidden" name="textColor" value={textColor} />
         <input type="hidden" name="stampStyle" value={stampStyle} />

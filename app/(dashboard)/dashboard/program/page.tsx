@@ -18,7 +18,9 @@ export default async function ProgramPage({
   const [{ data: pointsOfSale }, { data: merchantRow }] = await Promise.all([
     supabase
       .from("merchant_qr_codes")
-      .select("id, label, city, kind, loyalty_program_id")
+      .select(
+        "id, label, city, kind, loyalty_program_id, brand_color, text_color, stamp_style, sector, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
+      )
       .eq("merchant_id", merchant.merchantId)
       .in("kind", ["main", "join_source"])
       .order("created_at", { ascending: true }),
@@ -96,19 +98,22 @@ export default async function ProgramPage({
         </p>
         <div className="mt-8">
           <CardCustomizer
+            posId={selectedPos.id}
             businessName={merchant.businessName}
             displayMode={program.display_mode}
             stampCount={program.stamp_count}
             rewardThreshold={program.reward_threshold}
             rewardDescription={program.reward_description}
-            initialColor={merchantRow?.brand_color ?? merchant.brandColor}
-            initialTextColor={merchantRow?.text_color ?? null}
-            initialStampStyle={merchantRow?.stamp_style ?? "circle"}
-            initialSector={merchantRow?.sector ?? null}
-            initialLogoUrl={merchantRow?.logo_url ?? merchant.logoUrl}
-            initialBackgroundPhotoUrl={merchantRow?.background_photo_url ?? null}
-            initialBackgroundPhotoEnabled={merchantRow?.background_photo_enabled ?? false}
-            initialNameDisplayMode={merchantRow?.name_display_mode ?? "text"}
+            initialColor={selectedPos.brand_color ?? merchantRow?.brand_color ?? merchant.brandColor}
+            initialTextColor={selectedPos.text_color ?? merchantRow?.text_color ?? null}
+            initialStampStyle={selectedPos.stamp_style ?? merchantRow?.stamp_style ?? "circle"}
+            initialSector={selectedPos.sector ?? merchantRow?.sector ?? null}
+            initialLogoUrl={selectedPos.logo_url ?? merchantRow?.logo_url ?? merchant.logoUrl}
+            initialBackgroundPhotoUrl={selectedPos.background_photo_url ?? merchantRow?.background_photo_url ?? null}
+            initialBackgroundPhotoEnabled={
+              selectedPos.background_photo_enabled ?? merchantRow?.background_photo_enabled ?? false
+            }
+            initialNameDisplayMode={selectedPos.name_display_mode ?? merchantRow?.name_display_mode ?? "text"}
           />
         </div>
       </div>

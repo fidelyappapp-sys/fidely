@@ -5,10 +5,10 @@ import { requireMerchantContext } from "@/lib/merchant";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { uploadMerchantCardAsset } from "@/lib/storage";
 import { cardCustomizationSchema } from "@/lib/validation/schemas";
-import { resyncMerchantWalletPasses } from "@/lib/wallet/resync";
+import { resyncPointOfSaleWalletPasses } from "@/lib/wallet/resync";
 import type { Database } from "@/lib/supabase/types";
 
-type MerchantUpdate = Database["public"]["Tables"]["merchants"]["Update"];
+type PointOfSaleUpdate = Database["public"]["Tables"]["merchant_qr_codes"]["Update"];
 
 export interface CardCustomizationState {
   error?: string;
@@ -24,6 +24,11 @@ export async function updateCardCustomization(
     return { error: "Seul le propriétaire peut personnaliser la carte." };
   }
 
+  const posId = formData.get("posId");
+  if (typeof posId !== "string" || !posId) {
+    return { error: "Identifiant de point de vente manquant." };
+  }
+
   const parsed = cardCustomizationSchema.safeParse({
     brandColor: formData.get("brandColor"),
     textColor: formData.get("textColor"),
@@ -36,7 +41,7 @@ export async function updateCardCustomization(
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
-  const update: MerchantUpdate = {
+  const update: PointOfSaleUpdate = {
     brand_color: parsed.data.brandColor,
     text_color: parsed.data.textColor,
     stamp_style: parsed.data.stampStyle,
@@ -51,7 +56,7 @@ export async function updateCardCustomization(
   const logo = formData.get("logo");
   if (logo instanceof File && logo.size > 0) {
     try {
-      update.logo_url = await uploadMerchantCardAsset(merchant.merchantId, logo, "logo");
+      update.logo_url = await uploadMerchantCardAsset(merchant.merchantId, posId, logo, "logo");
     } catch (err) {
       return { error: err instanceof Error ? err.message : "Échec de l'envoi du logo." };
     }
@@ -62,6 +67,7 @@ export async function updateCardCustomization(
     try {
       update.background_photo_url = await uploadMerchantCardAsset(
         merchant.merchantId,
+        posId,
         backgroundPhoto,
         "background"
       );
@@ -71,15 +77,20 @@ export async function updateCardCustomization(
   }
 
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.from("merchants").update(update).eq("id", merchant.merchantId);
+  const { error } = await supabase
+    .from("merchant_qr_codes")
+    .update(update)
+    .eq("id", posId)
+    .eq("merchant_id", merchant.merchantId);
 
   if (error) return { error: error.message };
 
   // Already-issued passes don't pick up the new color/logo/name on their
-  // own — push already-installed Apple passes to re-fetch, and re-sync the
-  // shared Google Wallet class (see lib/wallet/resync.ts for why both are
-  // needed). Never let a resync failure block the merchant's save.
-  await resyncMerchantWalletPasses(merchant.merchantId);
+  // own — push already-installed Apple passes to re-fetch, and re-sync this
+  // point of sale's own Google Wallet class (see lib/wallet/resync.ts for
+  // why both are needed). Never let a resync failure block the merchant's
+  // save.
+  await resyncPointOfSaleWalletPasses(posId);
 
   revalidatePath("/dashboard/program");
   revalidatePath("/c", "layout");

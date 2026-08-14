@@ -5,19 +5,22 @@ import { notifyAppleWalletUpdate } from "./apple/notify";
 import { upsertLoyaltyClass, patchLoyaltyObjectProgramFields } from "./google/objects";
 
 // Neither Apple nor Google Wallet re-renders an already-installed pass on
-// its own once the merchant edits brand color, logo, or business name —
-// Apple needs a push telling the device to re-fetch (buildLoyaltyPkPass
-// rebuilds fresh, so that's enough on that side), and Google's loyaltyClass
-// (shared by every customer of this merchant) needs to be re-PATCHed
-// directly, since nothing else ever touches it after the first customer
-// adds the card. Call this after any save that changes those fields.
-export async function resyncMerchantWalletPasses(merchantId: string): Promise<void> {
+// its own once the merchant edits a point of sale's brand color, logo, or
+// display name — Apple needs a push telling the device to re-fetch
+// (buildLoyaltyPkPass rebuilds fresh, so that's enough on that side), and
+// Google's loyaltyClass needs to be re-PATCHed directly, since nothing else
+// ever touches it after the first customer adds a card. Scoped by point of
+// sale (merchant_qr_code_id), not merchant_id — each point of sale has its
+// own design and its own Google Wallet class since 0024_pos_card_design.sql,
+// so a merchant-wide resync here would push one point of sale's look onto
+// another's cards. Call this after any card-design save.
+export async function resyncPointOfSaleWalletPasses(posId: string): Promise<void> {
   const db = createServiceRoleClient();
 
   const { data: cards } = await db
     .from("loyalty_cards")
     .select("pass_serial_number, google_object_id")
-    .eq("merchant_id", merchantId);
+    .eq("merchant_qr_code_id", posId);
 
   if (!cards || cards.length === 0) return;
 
@@ -26,24 +29,40 @@ export async function resyncMerchantWalletPasses(merchantId: string): Promise<vo
   const hasGoogleCard = cards.some((card) => card.google_object_id);
   if (!hasGoogleCard || !isGoogleWalletConfigured) return;
 
-  const { data: merchant } = await db
-    .from("merchants")
-    .select("slug, business_name, brand_color, logo_url, background_photo_url, background_photo_enabled")
-    .eq("id", merchantId)
+  const { data: pos } = await db
+    .from("merchant_qr_codes")
+    .select(
+      "brand_color, logo_url, background_photo_url, background_photo_enabled, merchants(business_name, brand_color, logo_url, background_photo_url, background_photo_enabled)"
+    )
+    .eq("id", posId)
     .maybeSingle();
 
-  // upsertLoyaltyClass requires a logo — if the merchant has since removed
-  // theirs there's nothing valid to resync to; leave the class as-is rather
-  // than erroring the merchant's save over it.
-  if (!merchant || !merchant.logo_url) return;
+  const merchant = pos?.merchants as unknown as {
+    business_name: string;
+    brand_color: string;
+    logo_url: string | null;
+    background_photo_url: string | null;
+    background_photo_enabled: boolean;
+  } | null;
+  if (!pos || !merchant) return;
+
+  const brandColorHex = pos.brand_color ?? merchant.brand_color;
+  const logoUrl = pos.logo_url ?? merchant.logo_url;
+  const backgroundPhotoEnabled = pos.background_photo_enabled ?? merchant.background_photo_enabled;
+  const backgroundPhotoUrl = pos.background_photo_url ?? merchant.background_photo_url;
+
+  // upsertLoyaltyClass requires a logo — if neither the point of sale nor
+  // the merchant has one configured there's nothing valid to resync to;
+  // leave the class as-is rather than erroring the merchant's save over it.
+  if (!logoUrl) return;
 
   try {
     await upsertLoyaltyClass({
-      merchantSlug: merchant.slug,
+      pointOfSaleId: posId,
       businessName: merchant.business_name,
-      brandColorHex: merchant.brand_color,
-      logoUrl: merchant.logo_url,
-      backgroundPhotoUrl: merchant.background_photo_enabled ? merchant.background_photo_url : null,
+      brandColorHex,
+      logoUrl,
+      backgroundPhotoUrl: backgroundPhotoEnabled ? backgroundPhotoUrl : null,
     });
   } catch (err) {
     console.error("Google wallet class resync failed", err);

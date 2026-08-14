@@ -28,7 +28,7 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      "public_id, points, pass_serial_number, pass_auth_token, created_at, customers(full_name, phone), merchants(business_name, brand_color, text_color, logo_url, background_photo_url, background_photo_enabled), loyalty_programs(display_mode, reward_threshold, reward_description), merchant_qr_codes(city)"
+      "public_id, points, pass_serial_number, pass_auth_token, created_at, customers(full_name, phone), merchants(business_name, brand_color, text_color, logo_url, background_photo_url, background_photo_enabled), loyalty_programs(display_mode, reward_threshold, reward_description), merchant_qr_codes(city, brand_color, text_color, logo_url, background_photo_url, background_photo_enabled)"
     )
     .eq("pass_serial_number", serialNumber)
     .maybeSingle();
@@ -56,7 +56,14 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
     reward_threshold: number;
     reward_description: string;
   } | null;
-  const pointOfSale = card.merchant_qr_codes as unknown as { city: string | null } | null;
+  const pointOfSale = card.merchant_qr_codes as unknown as {
+    city: string | null;
+    brand_color: string | null;
+    text_color: string | null;
+    logo_url: string | null;
+    background_photo_url: string | null;
+    background_photo_enabled: boolean | null;
+  } | null;
   const customer = card.customers as unknown as {
     full_name: string | null;
     phone: string | null;
@@ -64,9 +71,16 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
 
   if (!merchant || !program) return null;
 
-  const stripPhotoUrl = merchant.background_photo_enabled ? merchant.background_photo_url : null;
-  const assets = await generatePassAssets(merchant.brand_color, merchant.logo_url, stripPhotoUrl);
-  const textColorHex = merchant.text_color ?? suggestTextColor(merchant.brand_color);
+  // Falls back to the merchant's own design when this point of sale hasn't
+  // customized its own (see supabase/migrations/0024_pos_card_design.sql).
+  const brandColorHex = pointOfSale?.brand_color ?? merchant.brand_color;
+  const logoUrl = pointOfSale?.logo_url ?? merchant.logo_url;
+  const backgroundPhotoEnabled = pointOfSale?.background_photo_enabled ?? merchant.background_photo_enabled;
+  const backgroundPhotoUrl = pointOfSale?.background_photo_url ?? merchant.background_photo_url;
+
+  const stripPhotoUrl = backgroundPhotoEnabled ? backgroundPhotoUrl : null;
+  const assets = await generatePassAssets(brandColorHex, logoUrl, stripPhotoUrl);
+  const textColorHex = pointOfSale?.text_color ?? merchant.text_color ?? suggestTextColor(brandColorHex);
   const memberSince = new Date(card.created_at).toLocaleDateString("fr-FR", {
     day: "numeric",
     month: "long",
@@ -81,7 +95,7 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
     teamIdentifier: process.env.APPLE_TEAM_ID!,
     webServiceURL: `${appBaseUrl()}/api/wallet/apple`,
     authenticationToken: card.pass_auth_token,
-    backgroundColor: hexToPassRgbString(merchant.brand_color),
+    backgroundColor: hexToPassRgbString(brandColorHex),
     foregroundColor: hexToPassRgbString(textColorHex),
     labelColor: hexToPassRgbString(textColorHex),
   });

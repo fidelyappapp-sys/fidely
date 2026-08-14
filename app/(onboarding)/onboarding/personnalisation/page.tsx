@@ -10,7 +10,7 @@ export default async function OnboardingPersonalisationPage() {
   if (merchant.onboardingCompleted) redirect("/dashboard");
 
   const supabase = await createServerSupabaseClient();
-  const [{ data: merchantRow }, { data: program }] = await Promise.all([
+  const [{ data: merchantRow }, { data: program }, { data: mainPos }] = await Promise.all([
     supabase
       .from("merchants")
       .select(
@@ -23,7 +23,15 @@ export default async function OnboardingPersonalisationPage() {
       .select("display_mode, stamp_count, reward_threshold, reward_description")
       .eq("merchant_id", merchant.merchantId)
       .single(),
+    supabase
+      .from("merchant_qr_codes")
+      .select("id")
+      .eq("merchant_id", merchant.merchantId)
+      .eq("kind", "main")
+      .single(),
   ]);
+
+  if (!mainPos) redirect("/onboarding");
 
   return (
     <div>
@@ -32,6 +40,7 @@ export default async function OnboardingPersonalisationPage() {
         Secteur, couleur, logo — c&apos;est exactement ce que vos clients verront dans leur Wallet.
       </p>
       <CardCustomizer
+        posId={mainPos.id}
         businessName={merchant.businessName}
         displayMode={program?.display_mode ?? "stamps"}
         stampCount={program?.stamp_count ?? 10}

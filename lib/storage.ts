@@ -34,13 +34,18 @@ export async function uploadMerchantPhoto(merchantId: string, file: File): Promi
 }
 
 // Logo/background-photo uploads (card customization): unlike gallery/menu
-// photos, a merchant only ever has one of each, so this reuses a fixed
-// path per merchant/kind (upsert: true) instead of accumulating a new file
-// per upload. The returned URL is cache-busted with a timestamp query
-// param so a re-upload is visible immediately instead of serving a stale
-// cached copy of the previous file at the same path.
+// photos, a point of sale only ever has one of each, so this reuses a fixed
+// path per point of sale/kind (upsert: true) instead of accumulating a new
+// file per upload. Keyed by posId (not just merchantId) since each point of
+// sale can now have its own independent logo/background — otherwise two
+// points of sale uploading a logo would physically overwrite the same file
+// on disk even though their stored URLs are separate rows. The returned URL
+// is cache-busted with a timestamp query param so a re-upload is visible
+// immediately instead of serving a stale cached copy of the previous file
+// at the same path.
 export async function uploadMerchantCardAsset(
   merchantId: string,
+  posId: string,
   file: File,
   kind: "logo" | "background"
 ): Promise<string> {
@@ -52,7 +57,7 @@ export async function uploadMerchantCardAsset(
     throw new Error("Image trop lourde (5 Mo maximum).");
   }
 
-  const path = `${merchantId}/${kind}.${ext}`;
+  const path = `${merchantId}/${posId}/${kind}.${ext}`;
   const db = createServiceRoleClient();
 
   const { error } = await db.storage.from(BUCKET).upload(path, file, {

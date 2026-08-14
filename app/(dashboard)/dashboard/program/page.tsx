@@ -106,6 +106,7 @@ export default async function ProgramPage({
             key={selectedPos.id}
             posId={selectedPos.id}
             businessName={merchant.businessName}
+            city={selectedPos.city}
             displayMode={program.display_mode}
             stampCount={program.stamp_count}
             rewardThreshold={program.reward_threshold}

@@ -11,17 +11,9 @@ import type { StampIconKey, SectorKey } from "@/lib/supabase/types";
 
 const initialState: CardCustomizationState = {};
 
-// Fictional customer shown in the live preview so the merchant can see
-// exactly what a real customer's card looks like, matching the bottom info
-// row already rendered on the public card (app/(public-card)/c/[publicId]).
-const PREVIEW_CUSTOMER = {
-  name: "Jean Dupont",
-  phone: "06 12 34 56 78",
-  memberSince: new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }),
-};
-
 export function CardCustomizer({
   businessName,
+  city,
   displayMode,
   stampCount,
   rewardThreshold,
@@ -39,6 +31,10 @@ export function CardCustomizer({
   submitLabel = "Enregistrer la carte",
 }: {
   businessName: string;
+  // Shown in the preview's header, matching the real pass's headerFields
+  // (see lib/wallet/apple/pkpass.ts) — null before a point of sale's city
+  // has been set.
+  city?: string | null;
   displayMode: "stamps" | "points";
   stampCount: number;
   // Shown in the preview's reward/objectif row so it matches the structure
@@ -78,10 +74,8 @@ export function CardCustomizer({
   const logoInputRef = useRef<HTMLInputElement>(null);
   const backgroundInputRef = useRef<HTMLInputElement>(null);
 
-  const showLogoOnCard = nameDisplayMode === "logo" && Boolean(logoPreview);
   const previewFilled = Math.max(1, Math.round(stampCount * 0.4));
   const previewPoints = Math.max(1, Math.round(rewardThreshold * 0.4));
-  const previewProgress = Math.min(100, (previewPoints / Math.max(1, rewardThreshold)) * 100);
   const rewardCaption = rewardDescription || "récompense à définir";
   const showPhotoBanner = backgroundEnabled && Boolean(backgroundPreview);
 
@@ -296,101 +290,82 @@ export function CardCustomizer({
         </button>
       </form>
 
-      <div className="flex justify-center lg:justify-end lg:pt-7">
+      <div className="flex flex-col items-center gap-3 lg:items-end lg:pt-7">
+        {/* Reproduit l'agencement réel d'un pass Apple/Google Wallet
+            (headerFields/primaryFields/secondaryFields/auxiliaryFields) —
+            pas une maquette libre. Voir lib/wallet/apple/pkpass.ts. */}
         <div
-          className="relative w-72 overflow-hidden rounded-[22px] p-5 shadow-2xl ring-1 ring-white/10"
+          className="w-72 overflow-hidden rounded-[22px] shadow-2xl ring-1 ring-white/10"
           style={{ backgroundColor: color, color: textColor }}
         >
-          {showPhotoBanner && (
-            <div aria-hidden className="absolute inset-x-0 top-0 h-32 overflow-hidden">
-              <div
-                className="absolute inset-0"
-                style={{
-                  backgroundImage: `url(${backgroundPreview})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-              />
-              <div
-                className="absolute inset-x-0 bottom-0 h-10"
-                style={{ background: `linear-gradient(to bottom, transparent, ${color})` }}
-              />
-            </div>
-          )}
-          <div className="relative">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-wide uppercase opacity-70">
-                Carte de fidélité
-              </span>
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/15 text-sm font-bold text-white">
+          <div className="flex items-center justify-between gap-2 px-4 pt-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="flex h-8 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/10">
                 {logoPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoPreview} alt="" className="h-full w-full object-cover" />
-                ) : sector ? (
-                  <SectorIcon sector={sector} className="h-4 w-4" />
+                  <img src={logoPreview} alt="" className="h-full w-full object-contain" />
                 ) : (
-                  businessName[0]?.toUpperCase() ?? "F"
+                  <span className="text-[10px] font-bold opacity-70">
+                    {businessName.slice(0, 3).toUpperCase()}
+                  </span>
                 )}
               </span>
+              <span className="truncate text-sm font-medium">{businessName}</span>
             </div>
-            {showLogoOnCard ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoPreview!} alt={businessName} className="mt-4 h-10 max-w-[70%] object-contain" />
-            ) : (
-              <p className="mt-4 truncate font-serif text-lg font-semibold">{businessName}</p>
-            )}
+            {city && <span className="shrink-0 text-xs opacity-70">{city}</span>}
+          </div>
 
-            {displayMode === "stamps" ? (
-              <>
-                <div className="mt-5 grid w-fit grid-cols-5 gap-2">
-                  {Array.from({ length: stampCount }).map((_, i) => (
-                    <StampIcon
-                      key={i}
-                      style={stampStyle}
-                      filled={i < previewFilled}
-                      className={`h-5 w-5 transition-opacity ${i < previewFilled ? "opacity-100" : "opacity-30"}`}
-                    />
-                  ))}
-                </div>
-                <p className="mt-4 text-xs opacity-70">
-                  Aperçu — {previewFilled}/{stampCount} — {rewardCaption}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="mt-5 text-3xl font-bold">{previewPoints}</p>
-                <div className="mt-3 h-2 rounded-full bg-white/20">
-                  <div className="h-2 rounded-full bg-white" style={{ width: `${previewProgress}%` }} />
-                </div>
-                <p className="mt-2 text-xs opacity-70">
-                  Aperçu — {previewPoints}/{rewardThreshold} — {rewardCaption}
-                </p>
-              </>
+          <div className="relative mt-4">
+            {showPhotoBanner && (
+              <div aria-hidden className="absolute inset-0 overflow-hidden">
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundImage: `url(${backgroundPreview})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
+                />
+                <div className="absolute inset-0 bg-black/25" />
+              </div>
             )}
-
-            <div className="mt-5 flex items-end justify-between border-t border-white/10 pt-3">
-              <div>
-                <p className="text-[10px] tracking-wide uppercase opacity-60">Téléphone</p>
-                <p className="text-xs font-medium">{PREVIEW_CUSTOMER.phone}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] tracking-wide uppercase opacity-60">Client</p>
-                <p className="font-serif text-xs font-medium">{PREVIEW_CUSTOMER.name}</p>
-              </div>
+            <div className="relative px-4 py-6">
+              <p className="text-[10px] font-medium tracking-wide uppercase opacity-70">Récompense</p>
+              <p className="mt-1 truncate text-2xl font-bold">{rewardCaption}</p>
             </div>
-            <p className="mt-2 text-[10px] opacity-50">Membre depuis {PREVIEW_CUSTOMER.memberSince}</p>
+          </div>
 
-            <div className="mt-5 flex flex-col items-center border-t border-white/10 pt-4">
-              <div className="rounded-xl bg-white p-2">
-                <QrGlyph className="h-14 w-14" />
-              </div>
-              <p className="mt-2 text-[10px] opacity-50">
-                {displayMode === "stamps" ? `${previewFilled}/${stampCount} tampons` : `${previewPoints}/${rewardThreshold} points`}
-                {" — "}QR code réel sur la carte du client
+          <div className="grid grid-cols-2 gap-3 px-4 pb-2">
+            <div>
+              <p className="text-[10px] tracking-wide uppercase opacity-60">
+                {displayMode === "stamps" ? "Solde de tampons" : "Solde de points"}
+              </p>
+              <p className="mt-0.5 text-lg font-semibold">
+                {displayMode === "stamps" ? previewFilled : previewPoints}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] tracking-wide uppercase opacity-60">Objectif</p>
+              <p className="mt-0.5 text-lg font-semibold">
+                {displayMode === "stamps" ? `${stampCount} tampons` : `${rewardThreshold} points`}
               </p>
             </div>
           </div>
+
+          <div className="flex flex-col items-center gap-2 px-4 pb-5 pt-3">
+            <div className="rounded-xl bg-white p-2">
+              <QrGlyph className="h-14 w-14" />
+            </div>
+            <p className="text-[10px] opacity-60">
+              {displayMode === "stamps" ? `${previewFilled} tampons` : `${previewPoints} points`}
+            </p>
+          </div>
         </div>
+
+        <p className="max-w-72 text-xs text-gray-500">
+          Le téléphone, le nom du client et la date d&apos;inscription apparaissent au verso de la carte
+          (icône ⓘ) sur Apple Wallet — Google Wallet ne les affiche pas du tout.
+        </p>
       </div>
     </div>
   );

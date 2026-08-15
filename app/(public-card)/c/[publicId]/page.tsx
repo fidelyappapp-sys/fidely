@@ -2,8 +2,14 @@ import { notFound } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { qrCodeDataUrl } from "@/lib/qr/generate";
 import { isAppleWalletConfigured, isGoogleWalletConfigured, isWebPushConfigured } from "@/lib/env";
-import type { StampIconKey } from "@/lib/supabase/types";
 import { suggestTextColor } from "@/lib/color";
+import {
+  resolveCardDesign,
+  POINT_OF_SALE_DESIGN_FIELDS,
+  MERCHANT_DESIGN_FIELDS,
+  type PointOfSaleDesignRow,
+  type MerchantDesignRow,
+} from "@/lib/wallet/design";
 import { CardPoints } from "@/components/public-card/CardPoints";
 import { WalletButtons } from "@/components/public-card/WalletButtons";
 import { PushOptIn } from "@/components/public-card/PushOptIn";
@@ -27,27 +33,27 @@ export default async function PublicCardPage({
   const { publicId } = await params;
   const db = createServiceRoleClient();
 
-  // Only columns guaranteed to exist since 0001_init.sql — the customer
-  // card must keep resolving regardless of whether later migrations
-  // (stamp_style, background photo, ...) have landed on this database yet.
+  // Same design resolution as the real Apple/Google Wallet pass (see
+  // lib/wallet/design.ts) — this page is what a customer sees right before
+  // adding the card, it must never show a different look than what they're
+  // about to get. Only columns guaranteed to exist since 0001_init.sql plus
+  // the design/point-of-sale ones (0016/0021/0024, all already applied
+  // everywhere this runs) — subscription_status is fetched separately below
+  // so a missing column there still can't take the whole page down.
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      "points, merchant_id, pass_serial_number, created_at, customers(full_name, phone), merchants(business_name, brand_color, logo_url, subscription_status), loyalty_programs(display_mode, stamp_count, reward_threshold, reward_description)"
+      `points, merchant_id, merchant_qr_code_id, pass_serial_number, created_at, merchants(${MERCHANT_DESIGN_FIELDS}), loyalty_programs(display_mode, stamp_count, reward_threshold, reward_description), merchant_qr_codes(city, ${POINT_OF_SALE_DESIGN_FIELDS})`
     )
     .eq("public_id", publicId)
     .maybeSingle();
 
   if (!card) notFound();
 
-  const merchant = card.merchants as unknown as {
-    business_name: string;
-    brand_color: string;
-    logo_url: string | null;
-    subscription_status: string;
-  } | null;
-  const customer = card.customers as unknown as { full_name: string | null; phone: string | null } | null;
-  const isPaused = merchant?.subscription_status === "paused";
+  const merchant = card.merchants as unknown as MerchantDesignRow | null;
+  const pointOfSale = card.merchant_qr_codes as unknown as
+    | (PointOfSaleDesignRow & { city: string | null })
+    | null;
   const program = card.loyalty_programs as unknown as {
     display_mode: "stamps" | "points";
     stamp_count: number;
@@ -55,27 +61,21 @@ export default async function PublicCardPage({
     reward_description: string;
   } | null;
 
-  const [qrDataUrl, extras, menuItems, galleryPhotos, customizationRow] = await Promise.all([
+  const [qrDataUrl, extras, menuItems, galleryPhotos, subscriptionRow] = await Promise.all([
     qrCodeDataUrl(publicId),
     getMerchantPageExtras(db, card.merchant_id),
     getMerchantMenuItems(db, card.merchant_id),
     getMerchantGalleryPhotos(db, card.merchant_id),
-    db
-      .from("merchants")
-      .select("stamp_style, text_color, background_photo_url, background_photo_enabled, name_display_mode")
-      .eq("id", card.merchant_id)
-      .maybeSingle(),
+    db.from("merchants").select("subscription_status").eq("id", card.merchant_id).maybeSingle(),
   ]);
 
-  const stampStyle: StampIconKey =
-    (customizationRow.data?.stamp_style as StampIconKey | undefined) ?? "circle";
-  const useBackgroundPhoto = Boolean(
-    customizationRow.data?.background_photo_enabled && customizationRow.data?.background_photo_url
-  );
-  const showLogoAsName = customizationRow.data?.name_display_mode === "logo" && Boolean(merchant?.logo_url);
+  const isPaused = subscriptionRow.data?.subscription_status === "paused";
+  const design = merchant ? resolveCardDesign(pointOfSale, merchant) : null;
+  const useBackgroundPhoto = Boolean(design?.backgroundPhotoEnabled && design?.backgroundPhotoUrl);
+  const showLogoAsName = design?.nameDisplayMode === "logo" && Boolean(design?.logoUrl);
 
-  const brandColor = merchant?.brand_color ?? "#111827";
-  const textColor = customizationRow.data?.text_color ?? suggestTextColor(brandColor);
+  const brandColor = design?.brandColor ?? "#111827";
+  const textColor = design?.textColor ?? suggestTextColor(brandColor);
   const memberSince = new Date(card.created_at).toLocaleDateString("fr-FR", {
     day: "numeric",
     month: "short",
@@ -94,9 +94,13 @@ export default async function PublicCardPage({
           </div>
         ) : (
           <>
-            {/* The membership card: logo + join date on top, name/points in the
-                middle over the photo or solid brand color, phone/customer name
-                at the bottom, QR code centered underneath. */}
+            {/* Mirrors the real Apple/Google Wallet pass layout (see
+                lib/wallet/apple/pkpass.ts): logo + city on top
+                (headerFields), reward + solde/objectif in the middle
+                (primary/secondary/auxiliary fields), QR code underneath.
+                Phone/customer name aren't shown here on purpose — on the
+                real pass they only ever appear on the back (Apple, via the
+                ⓘ icon) or not at all (Google). */}
             <div
               className="relative overflow-hidden rounded-[28px] shadow-xl shadow-black/10"
               style={{ backgroundColor: brandColor, color: textColor }}
@@ -106,7 +110,7 @@ export default async function PublicCardPage({
                   <div
                     className="absolute inset-0"
                     style={{
-                      backgroundImage: `url(${customizationRow.data!.background_photo_url})`,
+                      backgroundImage: `url(${design?.backgroundPhotoUrl})`,
                       backgroundSize: "cover",
                       backgroundPosition: "center",
                     }}
@@ -125,11 +129,11 @@ export default async function PublicCardPage({
 
               <div className="relative p-6">
                 <div className="flex items-center justify-between">
-                  {merchant?.logo_url ? (
+                  {design?.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={merchant.logo_url}
-                      alt={merchant.business_name}
+                      src={design.logoUrl}
+                      alt={merchant?.business_name}
                       className="h-12 w-12 rounded-xl object-cover shadow-lg ring-2 ring-white/30"
                     />
                   ) : (
@@ -137,16 +141,16 @@ export default async function PublicCardPage({
                       {merchant?.business_name?.[0]?.toUpperCase() ?? "F"}
                     </div>
                   )}
-                  <span className="font-serif text-xs tracking-wide opacity-70">
-                    Membre depuis {memberSince}
-                  </span>
+                  {pointOfSale?.city && (
+                    <span className="font-serif text-xs tracking-wide opacity-70">{pointOfSale.city}</span>
+                  )}
                 </div>
 
                 <div className="mt-6 text-center">
                   {showLogoAsName ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={merchant!.logo_url!}
+                      src={design!.logoUrl!}
                       alt={merchant?.business_name}
                       className="mx-auto h-14 max-w-[70%] object-contain"
                     />
@@ -164,7 +168,6 @@ export default async function PublicCardPage({
                   <div className="mt-6">
                     <CardPoints
                       publicId={publicId}
-                      stampStyle={stampStyle}
                       initial={{
                         points: card.points,
                         displayMode: program?.display_mode ?? "stamps",
@@ -174,17 +177,7 @@ export default async function PublicCardPage({
                       }}
                     />
                   </div>
-                </div>
-
-                <div className="mt-8 flex items-end justify-between">
-                  <div>
-                    <p className="text-[10px] tracking-wide uppercase opacity-60">Téléphone</p>
-                    <p className="text-sm font-medium">{customer?.phone || "—"}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] tracking-wide uppercase opacity-60">Client</p>
-                    <p className="font-serif text-sm font-medium">{customer?.full_name || "—"}</p>
-                  </div>
+                  <p className="mt-4 text-[10px] tracking-wide opacity-60">Membre depuis {memberSince}</p>
                 </div>
 
                 <div className="mx-auto mt-5 flex w-fit items-center justify-center rounded-2xl bg-white p-3">

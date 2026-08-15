@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { StampIcon } from "@/components/StampIcon";
-import type { StampIconKey } from "@/lib/supabase/types";
 
 interface CardData {
   points: number;
@@ -15,15 +13,11 @@ interface CardData {
 // Polls the public card endpoint so the customer sees their point balance
 // update live right after a staff scan, without needing a native push
 // (that role is filled by the wallet pass update on Apple/Google Wallet).
-export function CardPoints({
-  publicId,
-  stampStyle,
-  initial,
-}: {
-  publicId: string;
-  stampStyle: StampIconKey;
-  initial: CardData;
-}) {
+// Mirrors the real pass's field layout (primaryFields/secondaryFields/
+// auxiliaryFields — see lib/wallet/apple/pkpass.ts) rather than a separate
+// icon-grid design: no stamp icons exist on the actual wallet card, so this
+// page shouldn't show one either.
+export function CardPoints({ publicId, initial }: { publicId: string; initial: CardData }) {
   const [data, setData] = useState(initial);
 
   useEffect(() => {
@@ -38,42 +32,27 @@ export function CardPoints({
     return () => clearInterval(interval);
   }, [publicId]);
 
-  if (data.displayMode === "stamps") {
-    return (
-      <div>
-        <div className="mx-auto grid w-fit grid-cols-5 gap-3">
-          {Array.from({ length: data.stampCount }).map((_, i) => (
-            <StampIcon
-              key={i}
-              style={stampStyle}
-              filled={i < data.points}
-              className={`h-7 w-7 transition-opacity ${i < data.points ? "opacity-100" : "opacity-30"}`}
-            />
-          ))}
-        </div>
-        <p className="mt-4 text-sm opacity-80">
-          {data.points} / {data.stampCount} — {data.rewardDescription}
-        </p>
-      </div>
-    );
-  }
-
-  const progress = Math.min(100, (data.points / Math.max(1, data.rewardThreshold)) * 100);
+  const isStamps = data.displayMode === "stamps";
 
   return (
     <div>
-      <p className="text-5xl font-bold">{data.points}</p>
-      <p className="mt-1 text-sm opacity-80">points</p>
+      <p className="text-[10px] font-medium tracking-wide uppercase opacity-70">Récompense</p>
+      <p className="mt-1 text-2xl font-bold">{data.rewardDescription}</p>
 
-      <div className="mt-4 h-2 rounded-full bg-white/20">
-        <div
-          className="h-2 rounded-full bg-white transition-all"
-          style={{ width: `${progress}%` }}
-        />
+      <div className="mt-4 flex items-center justify-center gap-10">
+        <div>
+          <p className="text-[10px] tracking-wide uppercase opacity-60">
+            {isStamps ? "Solde de tampons" : "Solde de points"}
+          </p>
+          <p className="mt-0.5 text-lg font-semibold">{data.points}</p>
+        </div>
+        <div>
+          <p className="text-[10px] tracking-wide uppercase opacity-60">Objectif</p>
+          <p className="mt-0.5 text-lg font-semibold">
+            {isStamps ? `${data.stampCount} tampons` : `${data.rewardThreshold} points`}
+          </p>
+        </div>
       </div>
-      <p className="mt-2 text-xs opacity-80">
-        {data.points} / {data.rewardThreshold} — {data.rewardDescription}
-      </p>
     </div>
   );
 }

@@ -3,6 +3,13 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { signedQrPayload } from "@/lib/qr/generate";
 import { appBaseUrl } from "@/lib/env";
 import { suggestTextColor } from "@/lib/color";
+import {
+  resolveCardDesign,
+  POINT_OF_SALE_DESIGN_FIELDS,
+  MERCHANT_DESIGN_FIELDS,
+  type PointOfSaleDesignRow,
+  type MerchantDesignRow,
+} from "@/lib/wallet/design";
 import { hexToPassRgbString, generatePassAssets } from "./assets";
 
 function certificates() {
@@ -28,7 +35,7 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      "public_id, points, pass_serial_number, pass_auth_token, created_at, customers(full_name, phone), merchants(business_name, brand_color, text_color, logo_url, background_photo_url, background_photo_enabled), loyalty_programs(display_mode, reward_threshold, reward_description), merchant_qr_codes(city, brand_color, text_color, logo_url, background_photo_url, background_photo_enabled)"
+      `public_id, points, pass_serial_number, pass_auth_token, created_at, customers(full_name, phone), merchants(${MERCHANT_DESIGN_FIELDS}), loyalty_programs(display_mode, reward_threshold, reward_description), merchant_qr_codes(city, ${POINT_OF_SALE_DESIGN_FIELDS})`
     )
     .eq("pass_serial_number", serialNumber)
     .maybeSingle();
@@ -43,27 +50,15 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
     .eq("pass_serial_number", serialNumber)
     .maybeSingle();
 
-  const merchant = card.merchants as unknown as {
-    business_name: string;
-    brand_color: string;
-    text_color: string | null;
-    logo_url: string | null;
-    background_photo_url: string | null;
-    background_photo_enabled: boolean;
-  } | null;
+  const merchant = card.merchants as unknown as MerchantDesignRow | null;
   const program = card.loyalty_programs as unknown as {
     display_mode: "stamps" | "points";
     reward_threshold: number;
     reward_description: string;
   } | null;
-  const pointOfSale = card.merchant_qr_codes as unknown as {
-    city: string | null;
-    brand_color: string | null;
-    text_color: string | null;
-    logo_url: string | null;
-    background_photo_url: string | null;
-    background_photo_enabled: boolean | null;
-  } | null;
+  const pointOfSale = card.merchant_qr_codes as unknown as
+    | (PointOfSaleDesignRow & { city: string | null })
+    | null;
   const customer = card.customers as unknown as {
     full_name: string | null;
     phone: string | null;
@@ -73,14 +68,11 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
 
   // Falls back to the merchant's own design when this point of sale hasn't
   // customized its own (see supabase/migrations/0024_pos_card_design.sql).
-  const brandColorHex = pointOfSale?.brand_color ?? merchant.brand_color;
-  const logoUrl = pointOfSale?.logo_url ?? merchant.logo_url;
-  const backgroundPhotoEnabled = pointOfSale?.background_photo_enabled ?? merchant.background_photo_enabled;
-  const backgroundPhotoUrl = pointOfSale?.background_photo_url ?? merchant.background_photo_url;
+  const design = resolveCardDesign(pointOfSale, merchant);
 
-  const stripPhotoUrl = backgroundPhotoEnabled ? backgroundPhotoUrl : null;
-  const assets = await generatePassAssets(brandColorHex, logoUrl, stripPhotoUrl);
-  const textColorHex = pointOfSale?.text_color ?? merchant.text_color ?? suggestTextColor(brandColorHex);
+  const stripPhotoUrl = design.backgroundPhotoEnabled ? design.backgroundPhotoUrl : null;
+  const assets = await generatePassAssets(design.brandColor, design.logoUrl, stripPhotoUrl);
+  const textColorHex = design.textColor ?? suggestTextColor(design.brandColor);
   const memberSince = new Date(card.created_at).toLocaleDateString("fr-FR", {
     day: "numeric",
     month: "long",
@@ -95,7 +87,7 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
     teamIdentifier: process.env.APPLE_TEAM_ID!,
     webServiceURL: `${appBaseUrl()}/api/wallet/apple`,
     authenticationToken: card.pass_auth_token,
-    backgroundColor: hexToPassRgbString(brandColorHex),
+    backgroundColor: hexToPassRgbString(design.brandColor),
     foregroundColor: hexToPassRgbString(textColorHex),
     labelColor: hexToPassRgbString(textColorHex),
   });

@@ -4,6 +4,13 @@ import { signedQrPayload } from "@/lib/qr/generate";
 import { isGoogleWalletConfigured } from "@/lib/env";
 import { upsertLoyaltyClass, upsertLoyaltyObject, loyaltyClassId } from "@/lib/wallet/google/objects";
 import { buildGoogleWalletSaveUrl } from "@/lib/wallet/google/saveLink";
+import {
+  resolveCardDesign,
+  POINT_OF_SALE_DESIGN_FIELDS,
+  MERCHANT_DESIGN_FIELDS,
+  type PointOfSaleDesignRow,
+  type MerchantDesignRow,
+} from "@/lib/wallet/design";
 
 export const runtime = "nodejs";
 
@@ -21,7 +28,7 @@ export async function GET(request: Request) {
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      "id, public_id, points, google_object_id, merchant_qr_code_id, merchants(business_name, brand_color, logo_url, background_photo_url, background_photo_enabled), loyalty_programs(display_mode, reward_threshold, reward_description), merchant_qr_codes(city, brand_color, logo_url, background_photo_url, background_photo_enabled)"
+      `id, public_id, points, google_object_id, merchant_qr_code_id, merchants(${MERCHANT_DESIGN_FIELDS}), loyalty_programs(display_mode, reward_threshold, reward_description), merchant_qr_codes(city, ${POINT_OF_SALE_DESIGN_FIELDS})`
     )
     .eq("public_id", publicId)
     .maybeSingle();
@@ -30,25 +37,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Carte introuvable." }, { status: 404 });
   }
 
-  const merchant = card.merchants as unknown as {
-    business_name: string;
-    brand_color: string;
-    logo_url: string | null;
-    background_photo_url: string | null;
-    background_photo_enabled: boolean;
-  } | null;
+  const merchant = card.merchants as unknown as MerchantDesignRow | null;
   const program = card.loyalty_programs as unknown as {
     display_mode: "stamps" | "points";
     reward_threshold: number;
     reward_description: string;
   } | null;
-  const pointOfSale = card.merchant_qr_codes as unknown as {
-    city: string | null;
-    brand_color: string | null;
-    logo_url: string | null;
-    background_photo_url: string | null;
-    background_photo_enabled: boolean | null;
-  } | null;
+  const pointOfSale = card.merchant_qr_codes as unknown as
+    | (PointOfSaleDesignRow & { city: string | null })
+    | null;
 
   if (!merchant || !program || !card.merchant_qr_code_id) {
     return NextResponse.json({ error: "Programme introuvable." }, { status: 404 });
@@ -56,12 +53,9 @@ export async function GET(request: Request) {
 
   // Falls back to the merchant's own design when this point of sale hasn't
   // customized its own (see supabase/migrations/0024_pos_card_design.sql).
-  const brandColorHex = pointOfSale?.brand_color ?? merchant.brand_color;
-  const logoUrl = pointOfSale?.logo_url ?? merchant.logo_url;
-  const backgroundPhotoEnabled = pointOfSale?.background_photo_enabled ?? merchant.background_photo_enabled;
-  const backgroundPhotoUrl = pointOfSale?.background_photo_url ?? merchant.background_photo_url;
+  const design = resolveCardDesign(pointOfSale, merchant);
 
-  if (!logoUrl) {
+  if (!design.logoUrl) {
     return NextResponse.json(
       { error: "Google Wallet nécessite un logo pour ce point de vente (Paramètres → Logo)." },
       { status: 503 }
@@ -82,9 +76,9 @@ export async function GET(request: Request) {
       const classId = await upsertLoyaltyClass({
         pointOfSaleId: card.merchant_qr_code_id,
         businessName: merchant.business_name,
-        brandColorHex,
-        logoUrl,
-        backgroundPhotoUrl: backgroundPhotoEnabled ? backgroundPhotoUrl : null,
+        brandColorHex: design.brandColor,
+        logoUrl: design.logoUrl,
+        backgroundPhotoUrl: design.backgroundPhotoEnabled ? design.backgroundPhotoUrl : null,
       });
 
       objectId = await upsertLoyaltyObject({

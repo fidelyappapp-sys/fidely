@@ -1,6 +1,13 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isGoogleWalletConfigured } from "@/lib/env";
 import { signedQrPayload } from "@/lib/qr/generate";
+import {
+  resolveCardDesign,
+  POINT_OF_SALE_DESIGN_FIELDS,
+  MERCHANT_DESIGN_FIELDS,
+  type PointOfSaleDesignRow,
+  type MerchantDesignRow,
+} from "@/lib/wallet/design";
 import { notifyAppleWalletUpdate } from "./apple/notify";
 import { upsertLoyaltyClass, patchLoyaltyObjectProgramFields } from "./google/objects";
 
@@ -31,38 +38,27 @@ export async function resyncPointOfSaleWalletPasses(posId: string): Promise<void
 
   const { data: pos } = await db
     .from("merchant_qr_codes")
-    .select(
-      "brand_color, logo_url, background_photo_url, background_photo_enabled, merchants(business_name, brand_color, logo_url, background_photo_url, background_photo_enabled)"
-    )
+    .select(`${POINT_OF_SALE_DESIGN_FIELDS}, merchants(${MERCHANT_DESIGN_FIELDS})`)
     .eq("id", posId)
     .maybeSingle();
 
-  const merchant = pos?.merchants as unknown as {
-    business_name: string;
-    brand_color: string;
-    logo_url: string | null;
-    background_photo_url: string | null;
-    background_photo_enabled: boolean;
-  } | null;
+  const merchant = pos?.merchants as unknown as MerchantDesignRow | null;
   if (!pos || !merchant) return;
 
-  const brandColorHex = pos.brand_color ?? merchant.brand_color;
-  const logoUrl = pos.logo_url ?? merchant.logo_url;
-  const backgroundPhotoEnabled = pos.background_photo_enabled ?? merchant.background_photo_enabled;
-  const backgroundPhotoUrl = pos.background_photo_url ?? merchant.background_photo_url;
+  const design = resolveCardDesign(pos as PointOfSaleDesignRow, merchant);
 
   // upsertLoyaltyClass requires a logo — if neither the point of sale nor
   // the merchant has one configured there's nothing valid to resync to;
   // leave the class as-is rather than erroring the merchant's save over it.
-  if (!logoUrl) return;
+  if (!design.logoUrl) return;
 
   try {
     await upsertLoyaltyClass({
       pointOfSaleId: posId,
       businessName: merchant.business_name,
-      brandColorHex,
-      logoUrl,
-      backgroundPhotoUrl: backgroundPhotoEnabled ? backgroundPhotoUrl : null,
+      brandColorHex: design.brandColor,
+      logoUrl: design.logoUrl,
+      backgroundPhotoUrl: design.backgroundPhotoEnabled ? design.backgroundPhotoUrl : null,
     });
   } catch (err) {
     console.error("Google wallet class resync failed", err);

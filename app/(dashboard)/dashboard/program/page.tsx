@@ -19,7 +19,7 @@ export default async function ProgramPage({
     supabase
       .from("merchant_qr_codes")
       .select(
-        "id, label, city, kind, loyalty_program_id, brand_color, text_color, stamp_style, sector, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
+        "id, label, city, kind, loyalty_program_id, brand_color, text_color, stamp_style, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
       )
       .eq("merchant_id", merchant.merchantId)
       .in("kind", ["main", "join_source"])
@@ -27,7 +27,7 @@ export default async function ProgramPage({
     supabase
       .from("merchants")
       .select(
-        "brand_color, text_color, stamp_style, sector, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
+        "brand_color, text_color, stamp_style, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
       )
       .eq("id", merchant.merchantId)
       .single(),
@@ -78,12 +78,7 @@ export default async function ProgramPage({
         </div>
 
         <div className="mt-8">
-          <ProgramForm
-            key={selectedPos.id}
-            program={program}
-            programId={program.id}
-            sector={merchantRow?.sector ?? null}
-          />
+          <ProgramForm key={selectedPos.id} program={program} programId={program.id} />
         </div>
 
         <div className="mt-12">
@@ -114,7 +109,6 @@ export default async function ProgramPage({
             initialColor={selectedPos.brand_color ?? merchantRow?.brand_color ?? merchant.brandColor}
             initialTextColor={selectedPos.text_color ?? merchantRow?.text_color ?? null}
             initialStampStyle={selectedPos.stamp_style ?? merchantRow?.stamp_style ?? "circle"}
-            initialSector={selectedPos.sector ?? merchantRow?.sector ?? null}
             initialLogoUrl={selectedPos.logo_url ?? merchantRow?.logo_url ?? merchant.logoUrl}
             initialBackgroundPhotoUrl={selectedPos.background_photo_url ?? merchantRow?.background_photo_url ?? null}
             initialBackgroundPhotoEnabled={

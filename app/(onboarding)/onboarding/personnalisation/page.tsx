@@ -14,7 +14,7 @@ export default async function OnboardingPersonalisationPage() {
     supabase
       .from("merchants")
       .select(
-        "brand_color, text_color, stamp_style, sector, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
+        "brand_color, text_color, stamp_style, logo_url, background_photo_url, background_photo_enabled, name_display_mode"
       )
       .eq("id", merchant.merchantId)
       .single(),
@@ -37,7 +37,7 @@ export default async function OnboardingPersonalisationPage() {
     <div>
       <h1 className="text-xl font-semibold">Personnalisez votre carte</h1>
       <p className="mt-1 mb-8 text-sm text-gray-600">
-        Secteur, couleur, logo — c&apos;est exactement ce que vos clients verront dans leur Wallet.
+        Couleur, logo — c&apos;est exactement ce que vos clients verront dans leur Wallet.
       </p>
       <CardCustomizer
         posId={mainPos.id}
@@ -49,7 +49,6 @@ export default async function OnboardingPersonalisationPage() {
         initialColor={merchantRow?.brand_color ?? "#111827"}
         initialTextColor={merchantRow?.text_color ?? null}
         initialStampStyle={merchantRow?.stamp_style ?? "circle"}
-        initialSector={merchantRow?.sector ?? null}
         initialLogoUrl={merchantRow?.logo_url ?? null}
         initialBackgroundPhotoUrl={merchantRow?.background_photo_url ?? null}
         initialBackgroundPhotoEnabled={merchantRow?.background_photo_enabled ?? false}

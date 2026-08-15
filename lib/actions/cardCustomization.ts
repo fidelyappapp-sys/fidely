@@ -33,7 +33,6 @@ export async function updateCardCustomization(
     brandColor: formData.get("brandColor"),
     textColor: formData.get("textColor"),
     stampStyle: formData.get("stampStyle"),
-    sector: formData.get("sector"),
     backgroundPhotoEnabled: formData.get("backgroundPhotoEnabled"),
     nameDisplayMode: formData.get("nameDisplayMode"),
   });
@@ -45,7 +44,6 @@ export async function updateCardCustomization(
     brand_color: parsed.data.brandColor,
     text_color: parsed.data.textColor,
     stamp_style: parsed.data.stampStyle,
-    sector: parsed.data.sector || null,
     background_photo_enabled: parsed.data.backgroundPhotoEnabled ?? false,
     // If "logo" is chosen but no logo exists yet (nothing uploaded now, none
     // saved before), the card/public page fall back to text automatically —

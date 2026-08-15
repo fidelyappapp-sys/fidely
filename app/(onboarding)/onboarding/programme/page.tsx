@@ -10,16 +10,13 @@ export default async function OnboardingProgrammePage() {
   if (merchant.onboardingCompleted) redirect("/dashboard");
 
   const supabase = await createServerSupabaseClient();
-  const [{ data: program }, { data: merchantRow }] = await Promise.all([
-    supabase
-      .from("loyalty_programs")
-      .select(
-        "id, name, display_mode, points_per_scan, stamp_count, points_per_euro, reward_threshold, reward_description"
-      )
-      .eq("merchant_id", merchant.merchantId)
-      .single(),
-    supabase.from("merchants").select("sector").eq("id", merchant.merchantId).single(),
-  ]);
+  const { data: program } = await supabase
+    .from("loyalty_programs")
+    .select(
+      "id, name, display_mode, points_per_scan, stamp_count, points_per_euro, reward_threshold, reward_description"
+    )
+    .eq("merchant_id", merchant.merchantId)
+    .single();
 
   if (!program) redirect("/onboarding");
 
@@ -32,7 +29,6 @@ export default async function OnboardingProgrammePage() {
       <ProgramForm
         program={program}
         programId={program.id}
-        sector={merchantRow?.sector ?? null}
         action={saveOnboardingProgram}
         submitLabel="Terminer"
       />

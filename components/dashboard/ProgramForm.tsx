@@ -2,14 +2,17 @@
 
 import { useActionState, useState, type ReactNode } from "react";
 import { updateProgram, type ProgramActionState } from "@/lib/actions/program";
-import { getRewardSuggestions } from "@/lib/rewardSuggestions";
-import type { SectorKey } from "@/lib/supabase/types";
 
 const initialState: ProgramActionState = {};
 
+// Quick-pick pills shown below the reward field — used to be tailored to
+// the merchant's sector, but the sector picker was removed (it never
+// appeared anywhere on the real Apple/Google Wallet pass), so this is now a
+// single generic list for everyone.
+const REWARD_SUGGESTIONS = ["10% de réduction", "-5€ sur votre commande", "1 cadeau offert"];
+
 export function ProgramForm({
   program,
-  sector = null,
   action = updateProgram,
   submitLabel = "Enregistrer",
   // Which loyalty_programs row this edits — required by updateProgram to
@@ -30,9 +33,6 @@ export function ProgramForm({
     reward_threshold: number;
     reward_description: string;
   };
-  // Used only to pick which quick-suggestion pills to show below the reward
-  // field (set on the personalisation step) — not persisted by this form.
-  sector?: SectorKey | null;
   // Lets the onboarding wizard reuse this exact component/action and flip
   // onboarding_completed + redirect on success instead of showing "Programme
   // mis à jour." inline (see lib/actions/onboarding.ts).
@@ -44,7 +44,6 @@ export function ProgramForm({
   const [state, formAction, pending] = useActionState(action, initialState);
   const [displayMode, setDisplayMode] = useState<"stamps" | "points">(program.display_mode);
   const [rewardDescription, setRewardDescription] = useState(program.reward_description);
-  const suggestions = getRewardSuggestions(sector);
 
   return (
     <form action={formAction} className="max-w-md space-y-5">
@@ -173,7 +172,7 @@ export function ProgramForm({
           className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
         />
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {suggestions.map((suggestion) => (
+          {REWARD_SUGGESTIONS.map((suggestion) => (
             <button
               key={suggestion}
               type="button"

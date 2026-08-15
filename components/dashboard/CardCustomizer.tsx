@@ -2,11 +2,10 @@
 
 import { useActionState, useRef, useState } from "react";
 import { updateCardCustomization, type CardCustomizationState } from "@/lib/actions/cardCustomization";
-import { SectorIcon, SECTORS } from "@/components/SectorIcon";
 import { ColorPicker } from "@/components/dashboard/ColorPicker";
 import { QrGlyph } from "@/components/marketing/QrGlyph";
 import { suggestTextColor } from "@/lib/color";
-import type { StampIconKey, SectorKey } from "@/lib/supabase/types";
+import type { StampIconKey } from "@/lib/supabase/types";
 
 const initialState: CardCustomizationState = {};
 
@@ -20,7 +19,6 @@ export function CardCustomizer({
   initialColor,
   initialTextColor,
   initialStampStyle,
-  initialSector,
   initialLogoUrl,
   initialBackgroundPhotoUrl,
   initialBackgroundPhotoEnabled,
@@ -46,7 +44,6 @@ export function CardCustomizer({
   // from a luminance-based suggestion instead (see suggestTextColor).
   initialTextColor: string | null;
   initialStampStyle: StampIconKey;
-  initialSector: SectorKey | null;
   initialLogoUrl: string | null;
   initialBackgroundPhotoUrl: string | null;
   initialBackgroundPhotoEnabled: boolean;
@@ -64,15 +61,13 @@ export function CardCustomizer({
   const [state, formAction, pending] = useActionState(action, initialState);
   const [color, setColor] = useState(initialColor);
   const [textColor, setTextColor] = useState(initialTextColor ?? suggestTextColor(initialColor));
-  const [sector, setSector] = useState<SectorKey | "">(initialSector ?? "");
-  // stamp_style no longer has a picker (see below) — neither Apple nor
-  // Google Wallet supports custom stamp icons (text/number fields only on
-  // Apple, loyaltyPoints/textModulesData only on Google), so there was
-  // nothing to actually customize. The column still exists and is still
-  // NOT NULL in the DB, so keep submitting a value: the sector icon when
-  // one's picked (that's genuinely visible, as the logo placeholder), the
-  // merchant's prior value otherwise.
-  const stampStyle: StampIconKey = sector || initialStampStyle;
+  // stamp_style and sector no longer have a picker — neither Apple nor
+  // Google Wallet supports custom stamp icons or shows the sector anywhere
+  // (Apple: text/number fields only; Google: loyaltyPoints/textModulesData
+  // only), and the sector's other use (reward suggestions) was removed too.
+  // The columns still exist and stamp_style is still NOT NULL in the DB, so
+  // keep submitting the merchant's prior value unchanged.
+  const stampStyle: StampIconKey = initialStampStyle;
   const [logoPreview, setLogoPreview] = useState<string | null>(initialLogoUrl);
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(initialBackgroundPhotoUrl);
   const [backgroundEnabled, setBackgroundEnabled] = useState(initialBackgroundPhotoEnabled);
@@ -92,7 +87,6 @@ export function CardCustomizer({
         <input type="hidden" name="brandColor" value={color} />
         <input type="hidden" name="textColor" value={textColor} />
         <input type="hidden" name="stampStyle" value={stampStyle} />
-        <input type="hidden" name="sector" value={sector} />
         <input type="hidden" name="backgroundPhotoEnabled" value={backgroundEnabled ? "true" : "false"} />
         <input type="hidden" name="nameDisplayMode" value={nameDisplayMode} />
 
@@ -147,8 +141,6 @@ export function CardCustomizer({
               {logoPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoPreview} alt="Logo" className="h-full w-full object-cover" />
-              ) : sector ? (
-                <SectorIcon sector={sector} className="h-7 w-7 text-gray-400" />
               ) : (
                 <span className="text-lg font-bold text-gray-400">{businessName[0]?.toUpperCase() ?? "F"}</span>
               )}
@@ -184,30 +176,6 @@ export function CardCustomizer({
               un logo.
             </p>
           )}
-        </div>
-
-        <div>
-          <p className="text-sm font-medium text-gray-700">Secteur d&apos;activité</p>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Utilisé pour vous suggérer des récompenses adaptées, et comme icône par défaut tant que vous
-            n&apos;avez pas de logo.
-          </p>
-          <div className="mt-2 grid grid-cols-5 gap-2">
-            {SECTORS.map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => setSector(s.value)}
-                title={s.label}
-                className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[10px] transition ${
-                  sector === s.value ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <SectorIcon sector={s.value} className="h-4 w-4 text-gray-900" />
-                <span className="truncate">{s.label}</span>
-              </button>
-            ))}
-          </div>
         </div>
 
         <div>

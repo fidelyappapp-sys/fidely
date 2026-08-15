@@ -146,7 +146,6 @@ export const cardCustomizationSchema = z.object({
     "diamond",
     ...sectorValues,
   ]),
-  sector: z.enum(sectorValues).optional().or(z.literal("")),
   backgroundPhotoEnabled: z.coerce.boolean().optional(),
   nameDisplayMode: z.enum(["text", "logo"]).default("text"),
 });

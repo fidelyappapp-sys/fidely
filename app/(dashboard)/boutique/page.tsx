@@ -1,5 +1,6 @@
 import { requireMerchantContext } from "@/lib/merchant";
 import { isStripeConfigured } from "@/lib/env";
+import { NfcCardOrderForm } from "@/components/dashboard/NfcCardOrderForm";
 import { BoutiqueOrderForm } from "@/components/dashboard/BoutiqueOrderForm";
 import { AddMerchantForm } from "@/components/dashboard/AddMerchantForm";
 
@@ -22,7 +23,24 @@ export default async function BoutiquePage() {
           La facturation Stripe n&apos;est pas encore configurée côté serveur.
         </p>
       ) : (
-        <BoutiqueOrderForm />
+        <>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Carte NFC</h2>
+            <p className="mt-1 mb-4 max-w-2xl text-sm text-gray-600">
+              Une carte par point de vente, à présenter en caisse. Tarif dégressif selon la quantité
+              commandée.
+            </p>
+            <NfcCardOrderForm />
+          </div>
+
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Accessoires</h2>
+            <p className="mt-1 mb-4 max-w-2xl text-sm text-gray-600">
+              Présentoirs, feuilles et QR codes imprimés pour votre comptoir.
+            </p>
+            <BoutiqueOrderForm />
+          </div>
+        </>
       )}
 
       {merchant.role === "owner" && isStripeConfigured && (

@@ -234,6 +234,15 @@ export const boutiqueCheckoutSchema = z.discriminatedUnion("deliveryMethod", [
   }),
 ]);
 
+export const nfcCardCheckoutSchema = z.discriminatedUnion("deliveryMethod", [
+  z.object({ deliveryMethod: z.literal("hand_delivery"), quantity: z.number().int().min(1).max(20) }),
+  z.object({
+    deliveryMethod: z.literal("postal_shipping"),
+    quantity: z.number().int().min(1).max(20),
+    ...shippingAddressFields,
+  }),
+]);
+
 export const addMerchantSchema = z.object({
   businessName: z.string().trim().min(2).max(120),
   address: z.string().trim().min(2).max(300),

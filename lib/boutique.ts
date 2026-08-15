@@ -28,3 +28,23 @@ export const NEW_SHOP_KIT_PRODUCT: BoutiqueProduct = {
 export function findBoutiqueProduct(key: string): BoutiqueProduct | undefined {
   return [...BOUTIQUE_PRODUCTS, NEW_SHOP_KIT_PRODUCT].find((p) => p.key === key);
 }
+
+// Carte NFC: priced by volume tier (the reached tier applies to every card
+// in the order, not just the ones past the threshold), so it can't be
+// modeled as a single fixed-price Stripe Price like BOUTIQUE_PRODUCTS above
+// — priced dynamically at checkout via inline price_data instead (see
+// app/api/boutique/nfc-checkout/route.ts).
+export const NFC_CARD_PRICE_TIERS: { minQty: number; maxQty: number; unitAmountCents: number }[] = [
+  { minQty: 1, maxQty: 1, unitAmountCents: 3000 },
+  { minQty: 2, maxQty: 3, unitAmountCents: 2800 },
+  { minQty: 4, maxQty: 5, unitAmountCents: 2600 },
+  { minQty: 6, maxQty: 9, unitAmountCents: 2400 },
+  { minQty: 10, maxQty: Infinity, unitAmountCents: 2200 },
+];
+
+export const NFC_CARD_SHIPPING_CENTS = 399;
+
+export function nfcCardUnitPriceCents(quantity: number): number {
+  const tier = NFC_CARD_PRICE_TIERS.find((t) => quantity >= t.minQty && quantity <= t.maxQty);
+  return (tier ?? NFC_CARD_PRICE_TIERS[NFC_CARD_PRICE_TIERS.length - 1]).unitAmountCents;
+}

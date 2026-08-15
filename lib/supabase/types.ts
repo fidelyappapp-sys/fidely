@@ -62,7 +62,7 @@ export interface KitShippingAddress {
 export type ShopOrderStatus = "pending" | "paid" | "shipped" | "delivered";
 
 export interface ShopOrderItem {
-  key: "display_stand" | "sheet" | "qr" | "full_kit" | "new_shop_kit";
+  key: "display_stand" | "sheet" | "qr" | "full_kit" | "new_shop_kit" | "nfc_card";
   label: string;
   quantity: number;
   unitAmountCents: number;

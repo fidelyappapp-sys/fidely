@@ -2,7 +2,6 @@
 
 import { useActionState, useRef, useState } from "react";
 import { updateCardCustomization, type CardCustomizationState } from "@/lib/actions/cardCustomization";
-import { StampIcon, STAMP_STYLES } from "@/components/StampIcon";
 import { SectorIcon, SECTORS } from "@/components/SectorIcon";
 import { ColorPicker } from "@/components/dashboard/ColorPicker";
 import { QrGlyph } from "@/components/marketing/QrGlyph";
@@ -65,8 +64,15 @@ export function CardCustomizer({
   const [state, formAction, pending] = useActionState(action, initialState);
   const [color, setColor] = useState(initialColor);
   const [textColor, setTextColor] = useState(initialTextColor ?? suggestTextColor(initialColor));
-  const [stampStyle, setStampStyle] = useState<StampIconKey>(initialStampStyle);
   const [sector, setSector] = useState<SectorKey | "">(initialSector ?? "");
+  // stamp_style no longer has a picker (see below) — neither Apple nor
+  // Google Wallet supports custom stamp icons (text/number fields only on
+  // Apple, loyaltyPoints/textModulesData only on Google), so there was
+  // nothing to actually customize. The column still exists and is still
+  // NOT NULL in the DB, so keep submitting a value: the sector icon when
+  // one's picked (that's genuinely visible, as the logo placeholder), the
+  // merchant's prior value otherwise.
+  const stampStyle: StampIconKey = sector || initialStampStyle;
   const [logoPreview, setLogoPreview] = useState<string | null>(initialLogoUrl);
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(initialBackgroundPhotoUrl);
   const [backgroundEnabled, setBackgroundEnabled] = useState(initialBackgroundPhotoEnabled);
@@ -181,10 +187,9 @@ export function CardCustomizer({
         </div>
 
         <div>
-          <p className="text-sm font-medium text-gray-700">Style des tampons de points</p>
+          <p className="text-sm font-medium text-gray-700">Secteur d&apos;activité</p>
           <p className="mt-0.5 text-xs text-gray-500">
-            Choisissez n&apos;importe quelle icône ci-dessous — secteur ou forme générique — comme style
-            de tampon. La même icône de secteur sert aussi d&apos;icône par défaut tant que vous
+            Utilisé pour vous suggérer des récompenses adaptées, et comme icône par défaut tant que vous
             n&apos;avez pas de logo.
           </p>
           <div className="mt-2 grid grid-cols-5 gap-2">
@@ -192,34 +197,14 @@ export function CardCustomizer({
               <button
                 key={s.value}
                 type="button"
-                onClick={() => {
-                  setSector(s.value);
-                  setStampStyle(s.value);
-                }}
+                onClick={() => setSector(s.value)}
                 title={s.label}
                 className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[10px] transition ${
-                  stampStyle === s.value ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
+                  sector === s.value ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
                 }`}
               >
                 <SectorIcon sector={s.value} className="h-4 w-4 text-gray-900" />
                 <span className="truncate">{s.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
-            {STAMP_STYLES.map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => setStampStyle(s.value)}
-                className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-xs transition ${
-                  stampStyle === s.value
-                    ? "border-gray-900 bg-gray-50"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <StampIcon style={s.value} filled className="h-5 w-5 text-gray-900" />
-                {s.label}
               </button>
             ))}
           </div>

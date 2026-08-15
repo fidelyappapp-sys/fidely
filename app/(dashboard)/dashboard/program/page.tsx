@@ -99,7 +99,7 @@ export default async function ProgramPage({
       <div className="border-t border-gray-100 pt-10">
         <h2 className="text-xl font-semibold">Personnalisation de la carte</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Couleur et style de tampons affichés sur la carte de vos clients.
+          Couleur, logo et texte affichés sur la carte de vos clients.
         </p>
         <div className="mt-8">
           <CardCustomizer

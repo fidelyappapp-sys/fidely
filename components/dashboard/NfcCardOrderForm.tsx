@@ -1,12 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  TIERED_NFC_PRICE_TIERS,
-  TIERED_NFC_SHIPPING_CENTS,
-  tieredNfcUnitPriceCents,
-  findTieredNfcProduct,
-} from "@/lib/boutique";
+import { TIERED_NFC_PRICE_TIERS, TIERED_NFC_SHIPPING_CENTS, tieredNfcUnitPriceCents, TIERED_NFC_PRODUCT } from "@/lib/boutique";
 
 type DeliveryMethod = "hand_delivery" | "postal_shipping";
 
@@ -14,8 +9,7 @@ function formatEuros(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + "€";
 }
 
-export function NfcCardOrderForm({ productKey }: { productKey: "nfc_card" | "nfc_loyalty_card" }) {
-  const product = findTieredNfcProduct(productKey)!;
+export function NfcCardOrderForm() {
   const [quantity, setQuantity] = useState(1);
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("hand_delivery");
   const [pending, setPending] = useState(false);
@@ -30,7 +24,7 @@ export function NfcCardOrderForm({ productKey }: { productKey: "nfc_card" | "nfc
     setPending(true);
     setError(null);
 
-    const payload: Record<string, unknown> = { productKey, quantity, deliveryMethod };
+    const payload: Record<string, unknown> = { quantity, deliveryMethod };
     if (deliveryMethod === "postal_shipping") {
       payload.shippingName = formData.get("shippingName");
       payload.shippingLine1 = formData.get("shippingLine1");
@@ -64,9 +58,9 @@ export function NfcCardOrderForm({ productKey }: { productKey: "nfc_card" | "nfc
       <div className="rounded-2xl border border-gray-200 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="font-medium text-gray-900">{product.label}</p>
+            <p className="font-medium text-gray-900">{TIERED_NFC_PRODUCT.label}</p>
             <p className="text-sm text-gray-500">
-              {formatEuros(unitAmountCents)} / {product.unitNoun} au tarif actuel
+              {formatEuros(unitAmountCents)} / {TIERED_NFC_PRODUCT.unitNoun} au tarif actuel
             </p>
           </div>
           <input
@@ -83,7 +77,7 @@ export function NfcCardOrderForm({ productKey }: { productKey: "nfc_card" | "nfc
           <thead>
             <tr className="text-left text-xs tracking-wide text-gray-400 uppercase">
               <th className="pb-2 font-medium">Quantité</th>
-              <th className="pb-2 font-medium">Prix / {product.unitNoun}</th>
+              <th className="pb-2 font-medium">Prix / {TIERED_NFC_PRODUCT.unitNoun}</th>
             </tr>
           </thead>
           <tbody>
@@ -95,7 +89,7 @@ export function NfcCardOrderForm({ productKey }: { productKey: "nfc_card" | "nfc
                   key={tier.minQty}
                   className={isActive ? "font-semibold text-gray-900" : "text-gray-500"}
                 >
-                  <td className="py-1">{label} {product.unitNoun}{tier.maxQty !== 1 ? "s" : ""}</td>
+                  <td className="py-1">{label} {TIERED_NFC_PRODUCT.unitNoun}{tier.maxQty !== 1 ? "s" : ""}</td>
                   <td className="py-1">{formatEuros(tier.unitAmountCents)}</td>
                 </tr>
               );
@@ -116,7 +110,7 @@ export function NfcCardOrderForm({ productKey }: { productKey: "nfc_card" | "nfc
           <div>
             <p className="font-medium text-gray-900">Remise en main propre — gratuite</p>
             <p className="text-sm text-gray-500">
-              Installation offerte pour la première {product.unitNoun}. Les {product.unitNoun}s
+              Installation offerte pour la première {TIERED_NFC_PRODUCT.unitNoun}. Les {TIERED_NFC_PRODUCT.unitNoun}s
               supplémentaires sont livrées avec leur mode d&apos;emploi.
             </p>
           </div>
@@ -180,7 +174,7 @@ export function NfcCardOrderForm({ productKey }: { productKey: "nfc_card" | "nfc
       <div className="space-y-1 rounded-2xl bg-gray-50 p-4 text-sm">
         <div className="flex justify-between text-gray-600">
           <span>
-            {quantity} {product.unitNoun}{quantity > 1 ? "s" : ""} × {formatEuros(unitAmountCents)}
+            {quantity} {TIERED_NFC_PRODUCT.unitNoun}{quantity > 1 ? "s" : ""} × {formatEuros(unitAmountCents)}
           </span>
           <span>{formatEuros(subtotalCents)}</span>
         </div>

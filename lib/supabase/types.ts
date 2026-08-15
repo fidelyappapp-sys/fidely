@@ -62,10 +62,16 @@ export interface KitShippingAddress {
 export type ShopOrderStatus = "pending" | "paid" | "shipped" | "delivered";
 
 export interface ShopOrderItem {
-  key: "display_stand" | "sheet" | "qr" | "full_kit" | "new_shop_kit" | "nfc_card" | "nfc_loyalty_card";
+  key: "display_stand" | "sheet" | "qr" | "full_kit" | "new_shop_kit" | "nfc_card" | "nfc_loyalty_card" | "nfc_chip";
   label: string;
   quantity: number;
   unitAmountCents: number;
+  // Which point of sale each unit is configured for once received — only
+  // set for "qr"/"nfc_chip"/"full_kit" items (see PLAQUE_COMPONENTS in
+  // lib/boutique.ts). One entry per unit (length === quantity). Label is a
+  // snapshot at order time, not a live join, so it survives the point of
+  // sale being renamed or removed later.
+  posAssignments?: { posId: string; posLabel: string }[];
 }
 
 export interface Database {

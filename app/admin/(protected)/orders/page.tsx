@@ -31,6 +31,12 @@ function OrderList({ orders }: { orders: AdminShopOrder[] }) {
               {order.items.map((item, i) => (
                 <li key={i}>
                   {item.quantity} × {item.label}
+                  {item.posAssignments && item.posAssignments.length > 0 && (
+                    <span className="text-gray-500">
+                      {" "}
+                      → {item.posAssignments.map((a) => a.posLabel).join(", ")}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

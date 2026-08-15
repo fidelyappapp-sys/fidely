@@ -3,7 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { appBaseUrl, isStripeConfigured } from "@/lib/env";
 import { publicNfcCheckoutSchema } from "@/lib/validation/schemas";
-import { tieredNfcUnitPriceCents, TIERED_NFC_SHIPPING_CENTS, findTieredNfcProduct } from "@/lib/boutique";
+import { tieredNfcUnitPriceCents, TIERED_NFC_SHIPPING_CENTS, TIERED_NFC_PRODUCT } from "@/lib/boutique";
 
 export const runtime = "nodejs";
 
@@ -27,7 +27,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Requête invalide." }, { status: 400 });
   }
 
-  const product = findTieredNfcProduct("nfc_card")!;
   const { quantity } = parsed.data;
   const unitAmountCents = tieredNfcUnitPriceCents(quantity);
   const amountCents = unitAmountCents * quantity + TIERED_NFC_SHIPPING_CENTS;
@@ -53,7 +52,7 @@ export async function POST(request: Request) {
     shipping_address_collection: { allowed_countries: ["FR"] },
     line_items: [
       {
-        price_data: { currency: "eur", unit_amount: unitAmountCents, product_data: { name: product.label } },
+        price_data: { currency: "eur", unit_amount: unitAmountCents, product_data: { name: TIERED_NFC_PRODUCT.label } },
         quantity,
       },
       {

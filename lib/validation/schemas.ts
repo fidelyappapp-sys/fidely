@@ -219,17 +219,13 @@ export const kitDeliverySchema = z.discriminatedUnion("method", [
   z.object({ method: z.literal("postal_shipping"), ...shippingAddressFields }),
 ]);
 
-const tieredNfcProductKey = z.enum(["nfc_card", "nfc_loyalty_card"]);
-
 export const nfcCardCheckoutSchema = z.discriminatedUnion("deliveryMethod", [
   z.object({
     deliveryMethod: z.literal("hand_delivery"),
-    productKey: tieredNfcProductKey,
     quantity: z.number().int().min(1).max(20),
   }),
   z.object({
     deliveryMethod: z.literal("postal_shipping"),
-    productKey: tieredNfcProductKey,
     quantity: z.number().int().min(1).max(20),
     ...shippingAddressFields,
   }),
@@ -242,6 +238,38 @@ export const nfcCardCheckoutSchema = z.discriminatedUnion("deliveryMethod", [
 export const publicNfcCheckoutSchema = z.object({
   quantity: z.number().int().min(1).max(20),
 });
+
+// Components/pack for the Plaque avis Google (see PLAQUE_COMPONENTS /
+// PLAQUE_FULL_KIT in lib/boutique.ts and app/api/boutique/components-checkout).
+// qr/nfcChip/fullKit each need one point-of-sale id per unit ordered — the
+// *PosIds arrays' length must match their matching quantity, checked below.
+export const componentsOrderSchema = z
+  .object({
+    displayStandQty: z.number().int().min(0).max(20),
+    sheetQty: z.number().int().min(0).max(20),
+    qrQty: z.number().int().min(0).max(20),
+    qrPosIds: z.array(z.string().uuid()),
+    nfcChipQty: z.number().int().min(0).max(20),
+    nfcChipPosIds: z.array(z.string().uuid()),
+    fullKitQty: z.number().int().min(0).max(20),
+    fullKitPosIds: z.array(z.string().uuid()),
+  })
+  .refine((d) => d.qrPosIds.length === d.qrQty, {
+    message: "Chaque QR code doit être rattaché à un point de vente.",
+    path: ["qrPosIds"],
+  })
+  .refine((d) => d.nfcChipPosIds.length === d.nfcChipQty, {
+    message: "Chaque puce NFC doit être rattachée à un point de vente.",
+    path: ["nfcChipPosIds"],
+  })
+  .refine((d) => d.fullKitPosIds.length === d.fullKitQty, {
+    message: "Chaque pack doit être rattaché à un point de vente.",
+    path: ["fullKitPosIds"],
+  })
+  .refine(
+    (d) => d.displayStandQty + d.sheetQty + d.qrQty + d.nfcChipQty + d.fullKitQty > 0,
+    { message: "Sélectionnez au moins un composant." }
+  );
 
 export const addMerchantSchema = z.object({
   businessName: z.string().trim().min(2).max(120),

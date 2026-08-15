@@ -17,20 +17,13 @@ export const NEW_SHOP_KIT_PRODUCT: BoutiqueProduct = {
   priceEnvVar: "STRIPE_PRICE_NEW_SHOP_KIT",
 };
 
-// The 2 NFC products sold from /boutique (dashboard) and, for the plaque,
-// publicly from app/(marketing)/avis-google — priced by volume tier (the
-// reached tier applies to every unit in the order, not just the ones past
-// the threshold), so they can't be modeled as fixed-price Stripe Prices;
-// priced dynamically at checkout via inline price_data instead (see
+// Plaque avis Google — sold from /boutique (dashboard) and publicly from
+// app/(marketing)/avis-google — priced by volume tier (the reached tier
+// applies to every unit in the order, not just the ones past the
+// threshold), so it can't be modeled as a fixed-price Stripe Price; priced
+// dynamically at checkout via inline price_data instead (see
 // app/api/boutique/nfc-checkout and app/api/public/nfc-checkout).
-export const TIERED_NFC_PRODUCTS: { key: "nfc_card" | "nfc_loyalty_card"; label: string; unitNoun: string }[] = [
-  { key: "nfc_card", label: "Plaque avis Google", unitNoun: "plaque" },
-  { key: "nfc_loyalty_card", label: "Carte de fidélité NFC", unitNoun: "carte" },
-];
-
-export function findTieredNfcProduct(key: string) {
-  return TIERED_NFC_PRODUCTS.find((p) => p.key === key);
-}
+export const TIERED_NFC_PRODUCT = { key: "nfc_card" as const, label: "Plaque avis Google", unitNoun: "plaque" };
 
 export const TIERED_NFC_PRICE_TIERS: { minQty: number; maxQty: number; unitAmountCents: number }[] = [
   { minQty: 1, maxQty: 1, unitAmountCents: 3000 },
@@ -45,4 +38,35 @@ export const TIERED_NFC_SHIPPING_CENTS = 399;
 export function tieredNfcUnitPriceCents(quantity: number): number {
   const tier = TIERED_NFC_PRICE_TIERS.find((t) => quantity >= t.minQty && quantity <= t.maxQty);
   return (tier ?? TIERED_NFC_PRICE_TIERS[TIERED_NFC_PRICE_TIERS.length - 1]).unitAmountCents;
+}
+
+// Individual replacement parts for the Plaque avis Google — flat prices, no
+// volume tier (unlike the plaque itself above). "qr" and "nfc_chip" each get
+// physically configured to one specific point of sale's loyalty program once
+// received, so ordering either — standalone or via the pack, which bundles
+// one of each — requires picking which point of sale it's for (see
+// PlaqueComponentsOrderForm). display_stand/sheet are just generic hardware,
+// nothing to configure, so they don't need that.
+export const PLAQUE_COMPONENTS: {
+  key: "display_stand" | "sheet" | "qr" | "nfc_chip";
+  label: string;
+  amountCents: number;
+  needsPos: boolean;
+}[] = [
+  { key: "display_stand", label: "Présentoir en PVC", amountCents: 800, needsPos: false },
+  { key: "sheet", label: "Feuille de présentation", amountCents: 300, needsPos: false },
+  { key: "qr", label: "QR code", amountCents: 200, needsPos: true },
+  { key: "nfc_chip", label: "Puce NFC connectée", amountCents: 200, needsPos: true },
+];
+
+// Cheaper than buying all 4 components separately (800+300+200+200=1500).
+export const PLAQUE_FULL_KIT = {
+  key: "full_kit" as const,
+  label: "Pack complet (présentoir + feuille + QR code + puce NFC)",
+  amountCents: 1300,
+  needsPos: true,
+};
+
+export function findPlaqueComponent(key: string) {
+  return PLAQUE_COMPONENTS.find((c) => c.key === key);
 }

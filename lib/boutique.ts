@@ -52,11 +52,12 @@ export const PLAQUE_COMPONENTS: {
   label: string;
   amountCents: number;
   needsPos: boolean;
+  imageUrl: string;
 }[] = [
-  { key: "display_stand", label: "Présentoir en PVC", amountCents: 800, needsPos: false },
-  { key: "sheet", label: "Feuille de présentation", amountCents: 300, needsPos: false },
-  { key: "qr", label: "QR code", amountCents: 200, needsPos: true },
-  { key: "nfc_chip", label: "Puce NFC connectée", amountCents: 200, needsPos: true },
+  { key: "display_stand", label: "Présentoir en PVC", amountCents: 800, needsPos: false, imageUrl: "/boutique/presentoir.jpg" },
+  { key: "sheet", label: "Feuille de présentation", amountCents: 300, needsPos: false, imageUrl: "/boutique/feuille.jpg" },
+  { key: "qr", label: "QR code", amountCents: 200, needsPos: true, imageUrl: "/boutique/qr-code.jpg" },
+  { key: "nfc_chip", label: "Puce NFC connectée", amountCents: 200, needsPos: true, imageUrl: "/boutique/puce-nfc.jpg" },
 ];
 
 // Cheaper than buying all 4 components separately (800+300+200+200=1500).
@@ -65,6 +66,7 @@ export const PLAQUE_FULL_KIT = {
   label: "Pack complet (présentoir + feuille + QR code + puce NFC)",
   amountCents: 1300,
   needsPos: true,
+  imageUrl: "/boutique/pack-complet.jpg",
 };
 
 export function findPlaqueComponent(key: string) {

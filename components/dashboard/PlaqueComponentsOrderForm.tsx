@@ -142,9 +142,17 @@ export function PlaqueComponentsOrderForm({ pointsOfSale }: { pointsOfSale: PosO
           {PLAQUE_COMPONENTS.map((component) => (
             <div key={component.key}>
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{component.label}</p>
-                  <p className="text-xs text-gray-500">{formatEuros(component.amountCents)} / unité</p>
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={component.imageUrl}
+                    alt={component.label}
+                    className="h-14 w-14 shrink-0 rounded-lg border border-gray-100 object-cover"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{component.label}</p>
+                    <p className="text-xs text-gray-500">{formatEuros(component.amountCents)} / unité</p>
+                  </div>
                 </div>
                 <input
                   type="number"
@@ -163,11 +171,19 @@ export function PlaqueComponentsOrderForm({ pointsOfSale }: { pointsOfSale: PosO
 
           <div className="border-t border-gray-100 pt-3">
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-gray-900">{PLAQUE_FULL_KIT.label}</p>
-                <p className="text-xs text-gray-500">
-                  {formatEuros(PLAQUE_FULL_KIT.amountCents)} / pack — moins cher qu&apos;à la carte
-                </p>
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={PLAQUE_FULL_KIT.imageUrl}
+                  alt={PLAQUE_FULL_KIT.label}
+                  className="h-14 w-14 shrink-0 rounded-lg border border-gray-100 object-cover"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{PLAQUE_FULL_KIT.label}</p>
+                  <p className="text-xs text-gray-500">
+                    {formatEuros(PLAQUE_FULL_KIT.amountCents)} / pack — moins cher qu&apos;à la carte
+                  </p>
+                </div>
               </div>
               <input
                 type="number"

@@ -78,7 +78,7 @@ export default function AvisGooglePage() {
         </div>
       </div>
 
-      <div className="mt-16 grid gap-6 lg:grid-cols-2">
+      <div className="mt-16 mx-auto max-w-md">
         <div className="rounded-3xl border border-gray-100 p-8">
           <h2 className="font-semibold text-gray-900">Contenu du pack</h2>
           <ul className="mt-4 space-y-2.5 text-sm">
@@ -89,24 +89,6 @@ export default function AvisGooglePage() {
               </li>
             ))}
           </ul>
-        </div>
-
-        <div className="rounded-3xl border-2 border-indigo-500 bg-white p-8 shadow-lg shadow-indigo-100">
-          <h2 className="font-semibold text-gray-900">Tarif</h2>
-          <p className="mt-4 text-sm text-gray-700">
-            <span className="font-semibold text-gray-900">Offerte</span>{" "}
-            lors d&apos;une installation en personne dans votre commerce.
-          </p>
-          <p className="mt-2 text-sm text-gray-700">
-            <span className="font-semibold text-gray-900">3,99€</span>{" "}
-            de frais de livraison si vous préférez recevoir votre pack directement chez vous.
-          </p>
-          <Link
-            href="/signup"
-            className="mt-6 block rounded-full bg-indigo-600 px-6 py-3 text-center font-medium text-white transition hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-lg"
-          >
-            Commander mon pack
-          </Link>
         </div>
       </div>
 

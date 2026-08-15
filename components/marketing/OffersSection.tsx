@@ -77,7 +77,7 @@ export function OffersSection() {
 
           <div className="flex flex-1 flex-col p-6 sm:p-8">
             <h3 className="text-xl font-bold text-gray-900">
-              Fidélisez, remerciez, développez
+              Plus d&apos;avis 5 étoiles, sans lever le petit doigt
             </h3>
             <p className="mt-1 text-sm text-gray-500">Plaque avis Google — NFC &amp; QR code</p>
 

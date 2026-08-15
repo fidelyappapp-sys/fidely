@@ -151,6 +151,28 @@ export async function getShopOrders(db: Db): Promise<AdminShopOrder[]> {
   }));
 }
 
+// Anonymous purchases from /avis-google (see supabase/migrations/
+// 0025_public_shop_orders.sql) — no merchant to join, businessName falls
+// back to the buyer's name/email so this fits the same admin list shape.
+export async function getPublicShopOrders(db: Db): Promise<AdminShopOrder[]> {
+  const { data } = await db
+    .from("public_shop_orders")
+    .select("id, item_key, quantity, unit_amount_cents, amount_cents, status, shipping_address, buyer_email, buyer_name, created_at")
+    .in("status", ["paid", "shipped", "delivered"])
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    businessName: row.buyer_name ?? row.buyer_email ?? "Acheteur anonyme",
+    items: [{ key: row.item_key, label: "Plaque avis Google", quantity: row.quantity, unitAmountCents: row.unit_amount_cents }],
+    amountCents: row.amount_cents,
+    status: row.status,
+    deliveryMethod: "postal_shipping",
+    shippingAddress: row.shipping_address as KitShippingAddress | null,
+    createdAt: row.created_at,
+  }));
+}
+
 export interface MonthlySubscriberPoint {
   label: string;
   count: number;

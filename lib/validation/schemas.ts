@@ -220,28 +220,29 @@ export const kitDeliverySchema = z.discriminatedUnion("method", [
   z.object({ method: z.literal("postal_shipping"), ...shippingAddressFields }),
 ]);
 
-const boutiqueItemSchema = z.object({
-  key: z.enum(["display_stand", "sheet", "qr", "full_kit"]),
-  quantity: z.number().int().min(1).max(20),
-});
-
-export const boutiqueCheckoutSchema = z.discriminatedUnion("deliveryMethod", [
-  z.object({ deliveryMethod: z.literal("hand_delivery"), items: z.array(boutiqueItemSchema).min(1) }),
-  z.object({
-    deliveryMethod: z.literal("postal_shipping"),
-    items: z.array(boutiqueItemSchema).min(1),
-    ...shippingAddressFields,
-  }),
-]);
+const tieredNfcProductKey = z.enum(["nfc_card", "nfc_loyalty_card"]);
 
 export const nfcCardCheckoutSchema = z.discriminatedUnion("deliveryMethod", [
-  z.object({ deliveryMethod: z.literal("hand_delivery"), quantity: z.number().int().min(1).max(20) }),
+  z.object({
+    deliveryMethod: z.literal("hand_delivery"),
+    productKey: tieredNfcProductKey,
+    quantity: z.number().int().min(1).max(20),
+  }),
   z.object({
     deliveryMethod: z.literal("postal_shipping"),
+    productKey: tieredNfcProductKey,
     quantity: z.number().int().min(1).max(20),
     ...shippingAddressFields,
   }),
 ]);
+
+// Public, unauthenticated purchase (see app/api/public/nfc-checkout) — always
+// shipped (no "hand delivery" concept without an existing merchant
+// relationship), and no address fields: Stripe Checkout's own
+// shipping_address_collection gathers that instead.
+export const publicNfcCheckoutSchema = z.object({
+  quantity: z.number().int().min(1).max(20),
+});
 
 export const addMerchantSchema = z.object({
   businessName: z.string().trim().min(2).max(120),

@@ -1,7 +1,6 @@
 import { requireMerchantContext } from "@/lib/merchant";
 import { isStripeConfigured } from "@/lib/env";
 import { NfcCardOrderForm } from "@/components/dashboard/NfcCardOrderForm";
-import { BoutiqueOrderForm } from "@/components/dashboard/BoutiqueOrderForm";
 import { AddMerchantForm } from "@/components/dashboard/AddMerchantForm";
 
 export default async function BoutiquePage() {
@@ -30,15 +29,16 @@ export default async function BoutiquePage() {
               Plaque NFC + QR code à poser en caisse pour récolter plus d&apos;avis Google 5 étoiles.
               Tarif dégressif selon la quantité commandée.
             </p>
-            <NfcCardOrderForm />
+            <NfcCardOrderForm productKey="nfc_card" />
           </div>
 
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Accessoires</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Carte de fidélité NFC</h2>
             <p className="mt-1 mb-4 max-w-2xl text-sm text-gray-600">
-              Présentoirs, feuilles et QR codes imprimés pour votre comptoir.
+              Carte NFC à remettre à vos clients pour ajouter leur carte de fidélité au Wallet en un
+              geste, sans QR code à scanner. Tarif dégressif selon la quantité commandée.
             </p>
-            <BoutiqueOrderForm />
+            <NfcCardOrderForm productKey="nfc_loyalty_card" />
           </div>
         </>
       )}

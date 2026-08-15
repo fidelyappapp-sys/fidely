@@ -50,6 +50,8 @@ export async function POST(request: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.metadata?.type === "boutique_order") {
         await processBoutiqueOrder(db, session);
+      } else if (session.metadata?.type === "public_boutique_order") {
+        await processPublicBoutiqueOrder(db, session);
       } else if (session.metadata?.type === "merchant_subscription_setup") {
         await activateSubscriptionFromSetup(db, session);
       } else if (session.customer && session.subscription) {
@@ -218,6 +220,69 @@ async function processBoutiqueOrder(
       items,
       amountCents: order.amount_cents,
       deliveryMethod: order.delivery_method ?? "hand_delivery",
+      shippingAddress: order.shipping_address as KitShippingAddress | null,
+    }),
+  ]);
+}
+
+// Anonymous purchase from /avis-google (see app/api/public/nfc-checkout) —
+// no merchant, so buyer_email/name/shipping_address are unknown until now:
+// filled in here from the completed session's own customer_details /
+// collected_information.shipping_details (shipping_address_collection was
+// enabled at session creation).
+async function processPublicBoutiqueOrder(
+  db: ReturnType<typeof createServiceRoleClient>,
+  session: Stripe.Checkout.Session
+) {
+  const orderId = session.metadata?.order_id;
+  if (!orderId) return;
+
+  const shipping = session.collected_information?.shipping_details;
+  const buyerEmail = session.customer_details?.email ?? null;
+  const buyerName = shipping?.name ?? session.customer_details?.name ?? null;
+  const address = shipping?.address ?? session.customer_details?.address ?? null;
+
+  const { data: order } = await db
+    .from("public_shop_orders")
+    .update({
+      status: "paid",
+      stripe_checkout_session_id: session.id,
+      buyer_email: buyerEmail,
+      buyer_name: buyerName,
+      shipping_address: address
+        ? {
+            name: buyerName ?? "",
+            line1: address.line1 ?? "",
+            line2: address.line2 ?? "",
+            postalCode: address.postal_code ?? "",
+            city: address.city ?? "",
+            country: address.country ?? "",
+          }
+        : null,
+    })
+    .eq("id", orderId)
+    .select("item_key, quantity, unit_amount_cents, amount_cents, shipping_address")
+    .single();
+
+  if (!order) return;
+
+  const items = [{ label: "Plaque avis Google", quantity: order.quantity }];
+
+  await Promise.allSettled([
+    buyerEmail
+      ? sendOrderConfirmationEmail({
+          to: buyerEmail,
+          businessName: buyerName ?? buyerEmail,
+          items,
+          amountCents: order.amount_cents,
+          deliveryMethod: "postal_shipping",
+        })
+      : Promise.resolve(),
+    sendAdminOrderNotification({
+      businessName: buyerName ?? buyerEmail ?? "Acheteur anonyme",
+      items,
+      amountCents: order.amount_cents,
+      deliveryMethod: "postal_shipping",
       shippingAddress: order.shipping_address as KitShippingAddress | null,
     }),
   ]);

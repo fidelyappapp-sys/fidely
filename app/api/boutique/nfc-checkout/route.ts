@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { appBaseUrl, isStripeConfigured } from "@/lib/env";
 import { nfcCardCheckoutSchema } from "@/lib/validation/schemas";
-import { nfcCardUnitPriceCents, NFC_CARD_SHIPPING_CENTS } from "@/lib/boutique";
+import { tieredNfcUnitPriceCents, TIERED_NFC_SHIPPING_CENTS, findTieredNfcProduct } from "@/lib/boutique";
 import { getOrCreateStripeCustomerId } from "@/lib/stripe/customer";
 import type { KitShippingAddress, ShopOrderItem } from "@/lib/supabase/types";
 
@@ -32,13 +32,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Requête invalide." }, { status: 400 });
   }
 
-  const { quantity, deliveryMethod } = parsed.data;
-  const unitAmountCents = nfcCardUnitPriceCents(quantity);
-  const shippingCents = deliveryMethod === "postal_shipping" ? NFC_CARD_SHIPPING_CENTS : 0;
+  const { quantity, deliveryMethod, productKey } = parsed.data;
+  const product = findTieredNfcProduct(productKey);
+  if (!product) {
+    return NextResponse.json({ error: "Produit indisponible." }, { status: 400 });
+  }
+  const unitAmountCents = tieredNfcUnitPriceCents(quantity);
+  const shippingCents = deliveryMethod === "postal_shipping" ? TIERED_NFC_SHIPPING_CENTS : 0;
   const amountCents = unitAmountCents * quantity + shippingCents;
 
   const orderItems: ShopOrderItem[] = [
-    { key: "nfc_card", label: "Plaque avis Google", quantity, unitAmountCents },
+    { key: product.key, label: product.label, quantity, unitAmountCents },
   ];
 
   const shippingAddress: KitShippingAddress | null =
@@ -85,7 +89,7 @@ export async function POST(request: Request) {
     quantity: number;
   }> = [
     {
-      price_data: { currency: "eur", unit_amount: unitAmountCents, product_data: { name: "Plaque avis Google" } },
+      price_data: { currency: "eur", unit_amount: unitAmountCents, product_data: { name: product.label } },
       quantity,
     },
   ];

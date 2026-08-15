@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { PublicNfcOrderForm } from "@/components/marketing/PublicNfcOrderForm";
 
 const PACK_CONTENT = [
   "1 plaque NFC + QR code",
@@ -40,7 +41,7 @@ export default function AvisGooglePage() {
           Plaque avis Google
         </span>
         <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-          Fidélisez, remerciez, développez
+          Plus d&apos;avis 5 étoiles, sans lever le petit doigt
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-gray-600">
           Une plaque NFC et QR code prête à poser sur votre comptoir pour récolter plus d&apos;avis
@@ -107,6 +108,10 @@ export default function AvisGooglePage() {
             Commander mon pack
           </Link>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <PublicNfcOrderForm />
       </div>
 
       <p className="mt-10 text-center text-sm text-gray-500">

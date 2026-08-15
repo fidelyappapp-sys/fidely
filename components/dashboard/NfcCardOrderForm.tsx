@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { NFC_CARD_PRICE_TIERS, NFC_CARD_SHIPPING_CENTS, nfcCardUnitPriceCents } from "@/lib/boutique";
+import {
+  TIERED_NFC_PRICE_TIERS,
+  TIERED_NFC_SHIPPING_CENTS,
+  tieredNfcUnitPriceCents,
+  findTieredNfcProduct,
+} from "@/lib/boutique";
 
 type DeliveryMethod = "hand_delivery" | "postal_shipping";
 
@@ -9,22 +14,23 @@ function formatEuros(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + "€";
 }
 
-export function NfcCardOrderForm() {
+export function NfcCardOrderForm({ productKey }: { productKey: "nfc_card" | "nfc_loyalty_card" }) {
+  const product = findTieredNfcProduct(productKey)!;
   const [quantity, setQuantity] = useState(1);
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("hand_delivery");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const unitAmountCents = nfcCardUnitPriceCents(quantity);
-  const cardsSubtotalCents = unitAmountCents * quantity;
-  const shippingCents = deliveryMethod === "postal_shipping" ? NFC_CARD_SHIPPING_CENTS : 0;
-  const totalCents = cardsSubtotalCents + shippingCents;
+  const unitAmountCents = tieredNfcUnitPriceCents(quantity);
+  const subtotalCents = unitAmountCents * quantity;
+  const shippingCents = deliveryMethod === "postal_shipping" ? TIERED_NFC_SHIPPING_CENTS : 0;
+  const totalCents = subtotalCents + shippingCents;
 
   async function submit(formData: FormData) {
     setPending(true);
     setError(null);
 
-    const payload: Record<string, unknown> = { quantity, deliveryMethod };
+    const payload: Record<string, unknown> = { productKey, quantity, deliveryMethod };
     if (deliveryMethod === "postal_shipping") {
       payload.shippingName = formData.get("shippingName");
       payload.shippingLine1 = formData.get("shippingLine1");
@@ -58,9 +64,9 @@ export function NfcCardOrderForm() {
       <div className="rounded-2xl border border-gray-200 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="font-medium text-gray-900">Plaque avis Google</p>
+            <p className="font-medium text-gray-900">{product.label}</p>
             <p className="text-sm text-gray-500">
-              {formatEuros(unitAmountCents)} / plaque au tarif actuel
+              {formatEuros(unitAmountCents)} / {product.unitNoun} au tarif actuel
             </p>
           </div>
           <input
@@ -77,11 +83,11 @@ export function NfcCardOrderForm() {
           <thead>
             <tr className="text-left text-xs tracking-wide text-gray-400 uppercase">
               <th className="pb-2 font-medium">Quantité</th>
-              <th className="pb-2 font-medium">Prix / plaque</th>
+              <th className="pb-2 font-medium">Prix / {product.unitNoun}</th>
             </tr>
           </thead>
           <tbody>
-            {NFC_CARD_PRICE_TIERS.map((tier) => {
+            {TIERED_NFC_PRICE_TIERS.map((tier) => {
               const isActive = quantity >= tier.minQty && quantity <= tier.maxQty;
               const label = tier.maxQty === Infinity ? `${tier.minQty}+` : tier.minQty === tier.maxQty ? `${tier.minQty}` : `${tier.minQty}–${tier.maxQty}`;
               return (
@@ -89,7 +95,7 @@ export function NfcCardOrderForm() {
                   key={tier.minQty}
                   className={isActive ? "font-semibold text-gray-900" : "text-gray-500"}
                 >
-                  <td className="py-1">{label} plaque{tier.maxQty !== 1 ? "s" : ""}</td>
+                  <td className="py-1">{label} {product.unitNoun}{tier.maxQty !== 1 ? "s" : ""}</td>
                   <td className="py-1">{formatEuros(tier.unitAmountCents)}</td>
                 </tr>
               );
@@ -110,8 +116,8 @@ export function NfcCardOrderForm() {
           <div>
             <p className="font-medium text-gray-900">Remise en main propre — gratuite</p>
             <p className="text-sm text-gray-500">
-              Installation offerte pour la première plaque. Les plaques supplémentaires sont livrées
-              avec leur mode d&apos;emploi.
+              Installation offerte pour la première {product.unitNoun}. Les {product.unitNoun}s
+              supplémentaires sont livrées avec leur mode d&apos;emploi.
             </p>
           </div>
         </label>
@@ -125,7 +131,7 @@ export function NfcCardOrderForm() {
           />
           <div>
             <p className="font-medium text-gray-900">
-              La Poste — {formatEuros(NFC_CARD_SHIPPING_CENTS)}
+              La Poste — {formatEuros(TIERED_NFC_SHIPPING_CENTS)}
             </p>
           </div>
         </label>
@@ -174,9 +180,9 @@ export function NfcCardOrderForm() {
       <div className="space-y-1 rounded-2xl bg-gray-50 p-4 text-sm">
         <div className="flex justify-between text-gray-600">
           <span>
-            {quantity} plaque{quantity > 1 ? "s" : ""} × {formatEuros(unitAmountCents)}
+            {quantity} {product.unitNoun}{quantity > 1 ? "s" : ""} × {formatEuros(unitAmountCents)}
           </span>
-          <span>{formatEuros(cardsSubtotalCents)}</span>
+          <span>{formatEuros(subtotalCents)}</span>
         </div>
         <div className="flex justify-between text-gray-600">
           <span>Livraison</span>

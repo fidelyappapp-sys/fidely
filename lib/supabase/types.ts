@@ -62,7 +62,7 @@ export interface KitShippingAddress {
 export type ShopOrderStatus = "pending" | "paid" | "shipped" | "delivered";
 
 export interface ShopOrderItem {
-  key: "display_stand" | "sheet" | "qr" | "full_kit" | "new_shop_kit" | "nfc_card";
+  key: "display_stand" | "sheet" | "qr" | "full_kit" | "new_shop_kit" | "nfc_card" | "nfc_loyalty_card";
   label: string;
   quantity: number;
   unitAmountCents: number;
@@ -546,6 +546,29 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      public_shop_orders: {
+        Row: {
+          id: string;
+          item_key: "nfc_card";
+          quantity: number;
+          unit_amount_cents: number;
+          amount_cents: number;
+          shipping_address: KitShippingAddress | null;
+          buyer_email: string | null;
+          buyer_name: string | null;
+          status: ShopOrderStatus;
+          stripe_checkout_session_id: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["public_shop_orders"]["Row"]> & {
+          item_key: "nfc_card";
+          quantity: number;
+          unit_amount_cents: number;
+          amount_cents: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["public_shop_orders"]["Row"]>;
+        Relationships: [];
       };
       platform_admins: {
         Row: {

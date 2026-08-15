@@ -25,10 +25,10 @@ export default async function BoutiquePage() {
       ) : (
         <>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Carte NFC</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Plaque avis Google</h2>
             <p className="mt-1 mb-4 max-w-2xl text-sm text-gray-600">
-              Une carte par point de vente, à présenter en caisse. Tarif dégressif selon la quantité
-              commandée.
+              Plaque NFC + QR code à poser en caisse pour récolter plus d&apos;avis Google 5 étoiles.
+              Tarif dégressif selon la quantité commandée.
             </p>
             <NfcCardOrderForm />
           </div>

@@ -29,10 +29,11 @@ export function findBoutiqueProduct(key: string): BoutiqueProduct | undefined {
   return [...BOUTIQUE_PRODUCTS, NEW_SHOP_KIT_PRODUCT].find((p) => p.key === key);
 }
 
-// Carte NFC: priced by volume tier (the reached tier applies to every card
-// in the order, not just the ones past the threshold), so it can't be
-// modeled as a single fixed-price Stripe Price like BOUTIQUE_PRODUCTS above
-// — priced dynamically at checkout via inline price_data instead (see
+// Plaque avis Google (NFC + QR code, see app/(marketing)/avis-google): priced
+// by volume tier (the reached tier applies to every unit in the order, not
+// just the ones past the threshold), so it can't be modeled as a single
+// fixed-price Stripe Price like BOUTIQUE_PRODUCTS above — priced dynamically
+// at checkout via inline price_data instead (see
 // app/api/boutique/nfc-checkout/route.ts).
 export const NFC_CARD_PRICE_TIERS: { minQty: number; maxQty: number; unitAmountCents: number }[] = [
   { minQty: 1, maxQty: 1, unitAmountCents: 3000 },

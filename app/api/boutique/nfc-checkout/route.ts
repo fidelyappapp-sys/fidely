@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   const amountCents = unitAmountCents * quantity + shippingCents;
 
   const orderItems: ShopOrderItem[] = [
-    { key: "nfc_card", label: "Carte NFC", quantity, unitAmountCents },
+    { key: "nfc_card", label: "Plaque avis Google", quantity, unitAmountCents },
   ];
 
   const shippingAddress: KitShippingAddress | null =
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     quantity: number;
   }> = [
     {
-      price_data: { currency: "eur", unit_amount: unitAmountCents, product_data: { name: "Carte NFC" } },
+      price_data: { currency: "eur", unit_amount: unitAmountCents, product_data: { name: "Plaque avis Google" } },
       quantity,
     },
   ];

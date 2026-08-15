@@ -58,9 +58,9 @@ export function NfcCardOrderForm() {
       <div className="rounded-2xl border border-gray-200 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="font-medium text-gray-900">Carte NFC</p>
+            <p className="font-medium text-gray-900">Plaque avis Google</p>
             <p className="text-sm text-gray-500">
-              {formatEuros(unitAmountCents)} / carte au tarif actuel
+              {formatEuros(unitAmountCents)} / plaque au tarif actuel
             </p>
           </div>
           <input
@@ -77,7 +77,7 @@ export function NfcCardOrderForm() {
           <thead>
             <tr className="text-left text-xs tracking-wide text-gray-400 uppercase">
               <th className="pb-2 font-medium">Quantité</th>
-              <th className="pb-2 font-medium">Prix / carte</th>
+              <th className="pb-2 font-medium">Prix / plaque</th>
             </tr>
           </thead>
           <tbody>
@@ -89,7 +89,7 @@ export function NfcCardOrderForm() {
                   key={tier.minQty}
                   className={isActive ? "font-semibold text-gray-900" : "text-gray-500"}
                 >
-                  <td className="py-1">{label} carte{tier.maxQty !== 1 ? "s" : ""}</td>
+                  <td className="py-1">{label} plaque{tier.maxQty !== 1 ? "s" : ""}</td>
                   <td className="py-1">{formatEuros(tier.unitAmountCents)}</td>
                 </tr>
               );
@@ -110,7 +110,7 @@ export function NfcCardOrderForm() {
           <div>
             <p className="font-medium text-gray-900">Remise en main propre — gratuite</p>
             <p className="text-sm text-gray-500">
-              Installation offerte pour la première carte. Les cartes supplémentaires sont livrées
+              Installation offerte pour la première plaque. Les plaques supplémentaires sont livrées
               avec leur mode d&apos;emploi.
             </p>
           </div>
@@ -174,7 +174,7 @@ export function NfcCardOrderForm() {
       <div className="space-y-1 rounded-2xl bg-gray-50 p-4 text-sm">
         <div className="flex justify-between text-gray-600">
           <span>
-            {quantity} carte{quantity > 1 ? "s" : ""} × {formatEuros(unitAmountCents)}
+            {quantity} plaque{quantity > 1 ? "s" : ""} × {formatEuros(unitAmountCents)}
           </span>
           <span>{formatEuros(cardsSubtotalCents)}</span>
         </div>

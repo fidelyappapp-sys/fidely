@@ -2,6 +2,7 @@ import { requireMerchantContext } from "@/lib/merchant";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { NotificationsForm } from "@/components/dashboard/NotificationsForm";
 import { BirthdayToggle } from "@/components/dashboard/BirthdayToggle";
+import { PosSelector } from "@/components/dashboard/PosSelector";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString("fr-FR", {
@@ -12,15 +13,22 @@ function formatDate(iso: string) {
   });
 }
 
-export default async function NotificationsPage() {
+export default async function NotificationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pos?: string }>;
+}) {
   const merchant = await requireMerchantContext();
+  const { pos } = await searchParams;
   const supabase = await createServerSupabaseClient();
 
-  const [{ count: recipientCount }, { data: history }, { data: merchantRow }] = await Promise.all([
+  const [{ data: pointsOfSale }, { data: history }, { data: merchantRow }] = await Promise.all([
     supabase
-      .from("loyalty_cards")
-      .select("id", { count: "exact", head: true })
-      .eq("merchant_id", merchant.merchantId),
+      .from("merchant_qr_codes")
+      .select("id, label, city, kind")
+      .eq("merchant_id", merchant.merchantId)
+      .in("kind", ["main", "join_source"])
+      .order("created_at", { ascending: true }),
     supabase
       .from("push_notifications")
       .select("id, type, title, body, recipient_count, created_at")
@@ -33,6 +41,29 @@ export default async function NotificationsPage() {
       .eq("id", merchant.merchantId)
       .single(),
   ]);
+
+  // "Tous les points de vente" must be something a merchant explicitly
+  // picks, never the silent default — same resolution order as the
+  // Programme page, but this one only ever lands on "no filter" when the
+  // URL says so (?pos= present but empty isn't produced by PosSelector; a
+  // genuinely absent `pos` still resolves to one specific point of sale
+  // here, not to "all").
+  const hasMultiplePos = (pointsOfSale?.length ?? 0) > 1;
+  const selectedPos = hasMultiplePos
+    ? pos === "all"
+      ? null
+      : (pointsOfSale?.find((row) => row.id === pos) ??
+        pointsOfSale?.find((row) => row.kind === "main") ??
+        pointsOfSale?.[0] ??
+        null)
+    : (pointsOfSale?.[0] ?? null);
+
+  let recipientQuery = supabase
+    .from("loyalty_cards")
+    .select("id", { count: "exact", head: true })
+    .eq("merchant_id", merchant.merchantId);
+  if (selectedPos) recipientQuery = recipientQuery.eq("merchant_qr_code_id", selectedPos.id);
+  const { count: recipientCount } = await recipientQuery;
 
   return (
     <div className="max-w-2xl space-y-12">
@@ -48,10 +79,22 @@ export default async function NotificationsPage() {
         <h2 className="font-semibold text-gray-900">Envoyer une notification</h2>
         <p className="mt-1 text-sm text-gray-600">
           Le titre et le message sont poussés instantanément sur la carte Wallet de chaque
-          client.
+          client{hasMultiplePos ? " du point de vente sélectionné" : ""}.
         </p>
+
+        {hasMultiplePos && (
+          <div className="mt-4">
+            <PosSelector
+              items={(pointsOfSale ?? []).map((row) => ({ id: row.id, label: row.label, city: row.city }))}
+              selectedId={selectedPos?.id ?? "all"}
+              basePath="/dashboard/notifications"
+              allowAll
+            />
+          </div>
+        )}
+
         <div className="mt-6">
-          <NotificationsForm recipientCount={recipientCount ?? 0} />
+          <NotificationsForm recipientCount={recipientCount ?? 0} posId={selectedPos?.id ?? null} />
         </div>
       </section>
 

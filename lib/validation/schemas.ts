@@ -72,6 +72,9 @@ export const adjustPointsSchema = z.object({
 export const broadcastNotificationSchema = z.object({
   title: z.string().trim().min(2).max(80),
   body: z.string().trim().min(2).max(300),
+  // Absent/empty = every point of sale (explicit "Tous les points de
+  // vente" choice) — see components/dashboard/NotificationsForm.tsx.
+  posId: z.string().trim().uuid().optional().or(z.literal("")),
 });
 
 export const settingsSchema = z.object({

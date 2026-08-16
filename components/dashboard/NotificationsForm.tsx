@@ -8,7 +8,16 @@ import {
 
 const initialState: NotificationActionState = {};
 
-export function NotificationsForm({ recipientCount }: { recipientCount: number }) {
+export function NotificationsForm({
+  recipientCount,
+  posId,
+}: {
+  recipientCount: number;
+  // Which point of sale this send is scoped to — null means "Tous les
+  // points de vente", an explicit choice from the selector above, not the
+  // default (see app/(dashboard)/dashboard/notifications/page.tsx).
+  posId: string | null;
+}) {
   const [state, formAction, pending] = useActionState(sendBroadcastNotification, initialState);
 
   return (
@@ -25,6 +34,8 @@ export function NotificationsForm({ recipientCount }: { recipientCount: number }
       }}
       className="max-w-md space-y-5"
     >
+      {posId && <input type="hidden" name="posId" value={posId} />}
+
       <div>
         <label htmlFor="title" className="block text-sm font-medium text-gray-700">
           Titre

@@ -29,7 +29,7 @@ export default async function CustomersPage({
     .eq("merchant_id", merchant.merchantId)
     .order("created_at", { ascending: false });
 
-  if (pos) {
+  if (pos && pos !== "all") {
     cardsQuery = cardsQuery.eq("merchant_qr_code_id", pos);
   }
 
@@ -56,7 +56,7 @@ export default async function CustomersPage({
         <div className="mt-4">
           <PosSelector
             items={pointsOfSale.map((row) => ({ id: row.id, label: row.label, city: row.city }))}
-            selectedId={pos ?? null}
+            selectedId={pos ?? "all"}
             basePath="/dashboard/customers"
             allowAll
           />

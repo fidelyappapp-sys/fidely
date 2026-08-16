@@ -22,27 +22,38 @@ export async function sendBroadcastNotification(
   const parsed = broadcastNotificationSchema.safeParse({
     title: formData.get("title"),
     body: formData.get("body"),
+    posId: formData.get("posId"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
+  const posId = parsed.data.posId || null;
+
   const db = createServiceRoleClient();
 
-  const { data: cards } = await db
+  // posId absent means the merchant explicitly picked "Tous les points de
+  // vente" in the selector (see NotificationsForm) — otherwise this must
+  // stay scoped to one point of sale, or a merchant with several sends a
+  // single test message to every customer across every one of them.
+  let cardsQuery = db
     .from("loyalty_cards")
     .select("id, pass_serial_number, google_object_id")
     .eq("merchant_id", merchant.merchantId);
+  if (posId) cardsQuery = cardsQuery.eq("merchant_qr_code_id", posId);
+  const { data: cards } = await cardsQuery;
 
   if (!cards || cards.length === 0) {
     return { error: "Aucun client n'a encore de carte de fidélité." };
   }
 
-  await db
+  let updateQuery = db
     .from("loyalty_cards")
     .update({ last_push_message: parsed.data.body, apple_pass_updated_at: new Date().toISOString() })
     .eq("merchant_id", merchant.merchantId);
+  if (posId) updateQuery = updateQuery.eq("merchant_qr_code_id", posId);
+  await updateQuery;
 
   await Promise.allSettled([
     ...cards.map((card) =>
@@ -51,10 +62,15 @@ export async function sendBroadcastNotification(
         notifyGoogleWalletMessage(card.google_object_id, parsed.data.title, parsed.data.body),
       ])
     ),
-    sendWebPushToMerchant(db, merchant.merchantId, {
-      title: parsed.data.title,
-      body: parsed.data.body,
-    }),
+    sendWebPushToMerchant(
+      db,
+      merchant.merchantId,
+      {
+        title: parsed.data.title,
+        body: parsed.data.body,
+      },
+      posId
+    ),
   ]);
 
   await db.from("push_notifications").insert({

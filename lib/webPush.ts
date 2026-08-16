@@ -63,16 +63,21 @@ export async function sendWebPushToCard(
   await deliver(db, subs ?? [], payload);
 }
 
-// Sends to every device across all of a merchant's customers (manual
-// broadcast from the dashboard).
+// Sends to every device across a merchant's customers (manual broadcast
+// from the dashboard) — scoped to one point of sale unless posId is
+// omitted, which means the merchant explicitly chose "Tous les points de
+// vente" (see components/dashboard/NotificationsForm.tsx).
 export async function sendWebPushToMerchant(
   db: SupabaseClient<Database>,
   merchantId: string,
-  payload: PushPayload
+  payload: PushPayload,
+  posId?: string | null
 ): Promise<number> {
   if (!isWebPushConfigured) return 0;
 
-  const { data: cards } = await db.from("loyalty_cards").select("id").eq("merchant_id", merchantId);
+  let cardsQuery = db.from("loyalty_cards").select("id").eq("merchant_id", merchantId);
+  if (posId) cardsQuery = cardsQuery.eq("merchant_qr_code_id", posId);
+  const { data: cards } = await cardsQuery;
   const cardIds = (cards ?? []).map((c) => c.id);
   if (cardIds.length === 0) return 0;
 

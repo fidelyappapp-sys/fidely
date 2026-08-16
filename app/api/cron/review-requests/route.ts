@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   const { data: due } = await db
     .from("review_requests")
     .select(
-      "id, loyalty_card_id, merchant_id, loyalty_cards(pass_serial_number, google_object_id), merchants(business_name, google_maps_link)"
+      "id, loyalty_card_id, merchant_id, loyalty_cards(pass_serial_number, google_object_id), merchants(business_name, google_review_link)"
     )
     .eq("status", "pending")
     .lte("due_at", new Date().toISOString())
@@ -33,15 +33,15 @@ export async function GET(request: Request) {
     } | null;
     const merchant = row.merchants as unknown as {
       business_name: string;
-      google_maps_link: string | null;
+      google_review_link: string | null;
     } | null;
 
-    if (!card || !merchant?.google_maps_link) {
+    if (!card || !merchant?.google_review_link) {
       await db.from("review_requests").update({ status: "skipped" }).eq("id", row.id);
       continue;
     }
 
-    const body = `Vous avez apprécié votre visite chez ${merchant.business_name} ? Laissez-nous un avis Google ici : ${merchant.google_maps_link}`;
+    const body = `Vous avez apprécié votre visite chez ${merchant.business_name} ? Laissez-nous un avis Google ici : ${merchant.google_review_link}`;
 
     try {
       await Promise.allSettled([
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
         sendWebPushToCard(db, row.loyalty_card_id, {
           title: "Votre avis compte",
           body,
-          url: merchant.google_maps_link,
+          url: merchant.google_review_link,
         }),
       ]);
       await db

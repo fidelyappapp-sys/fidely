@@ -171,22 +171,35 @@ export async function POST(request: Request) {
     })
     .eq("id", result.scan_event_id);
 
-  // Best-effort: both the google_maps_link column and the review_requests
+  // Best-effort: both the google_review_link column and the review_requests
   // table only exist once the notifications migration has been applied.
   // Queried separately (rather than joined into the main lookup above) so
   // a missing column/table can't take down the scan itself.
   const { data: merchantRow } = await db
     .from("merchants")
-    .select("google_maps_link")
+    .select("google_review_link")
     .eq("id", card.merchant_id)
     .maybeSingle();
 
-  if (merchantRow?.google_maps_link) {
-    await db.from("review_requests").insert({
-      loyalty_card_id: card.id,
-      merchant_id: card.merchant_id,
-      due_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-    });
+  if (merchantRow?.google_review_link) {
+    // Cap review prompts at one per card per week — a customer scanning
+    // several times the same day (or same week) shouldn't get a fresh
+    // "leave us a review" ping every time.
+    const { data: recentRequest } = await db
+      .from("review_requests")
+      .select("id")
+      .eq("loyalty_card_id", card.id)
+      .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .limit(1)
+      .maybeSingle();
+
+    if (!recentRequest) {
+      await db.from("review_requests").insert({
+        loyalty_card_id: card.id,
+        merchant_id: card.merchant_id,
+        due_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      });
+    }
   }
 
   const customer = card.customers as unknown as { full_name: string | null } | null;

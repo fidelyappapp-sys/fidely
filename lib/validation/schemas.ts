@@ -20,6 +20,13 @@ export const onboardingInfosSchema = z.object({
     .min(2)
     .max(60)
     .regex(/^[a-z0-9-]+$/, "Lettres minuscules, chiffres et tirets uniquement"),
+  googleReviewLink: z
+    .string()
+    .trim()
+    .url("Lien invalide")
+    .max(500)
+    .optional()
+    .or(z.literal("")),
 });
 
 export const programUpdateSchema = z.discriminatedUnion("displayMode", [

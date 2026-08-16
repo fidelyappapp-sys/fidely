@@ -36,13 +36,14 @@ export async function createMerchantDraft(
     ownerPhone: formData.get("ownerPhone"),
     businessName: formData.get("businessName"),
     slug: formData.get("slug"),
+    googleReviewLink: formData.get("googleReviewLink"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
-  const { ownerFirstName, ownerLastName, ownerPhone, businessName, slug } = parsed.data;
+  const { ownerFirstName, ownerLastName, ownerPhone, businessName, slug, googleReviewLink } = parsed.data;
 
   // Onboarding creates merchants/merchant_staff rows, which have no
   // client-facing insert RLS policy (chicken-and-egg: is_merchant_staff()
@@ -70,6 +71,7 @@ export async function createMerchantDraft(
       owner_first_name: ownerFirstName,
       owner_last_name: ownerLastName,
       owner_phone: ownerPhone,
+      google_review_link: googleReviewLink || null,
       onboarding_completed: false,
     })
     .select("id")

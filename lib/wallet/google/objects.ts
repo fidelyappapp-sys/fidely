@@ -36,6 +36,14 @@ async function walletRequest(path: string, init: RequestInit) {
 export async function upsertLoyaltyClass(params: {
   pointOfSaleId: string;
   businessName: string;
+  // The loyalty program's own name (see loyalty_programs.name, "Nom du
+  // programme" on the Programme page) — shown as the card's title and as
+  // the bold header on Google Wallet notifications. Distinct from
+  // businessName: a merchant with several points of sale can run a
+  // differently-named program at each, and "programName" is what actually
+  // identifies which one a notification is about — businessName alone
+  // (same across every point of sale) can't.
+  programName: string;
   brandColorHex: string;
   logoUrl: string | null;
   // Google's equivalent of a card background photo — a banner shown on the
@@ -54,7 +62,7 @@ export async function upsertLoyaltyClass(params: {
   const body = {
     id,
     issuerName: params.businessName,
-    programName: params.businessName,
+    programName: params.programName,
     programLogo: { sourceUri: { uri: params.logoUrl } },
     hexBackgroundColor: params.brandColorHex,
     reviewStatus: "UNDER_REVIEW",

@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      `id, public_id, points, google_object_id, merchant_qr_code_id, merchants(${MERCHANT_DESIGN_FIELDS}), loyalty_programs(display_mode, reward_threshold, reward_description), merchant_qr_codes(city, ${POINT_OF_SALE_DESIGN_FIELDS})`
+      `id, public_id, points, google_object_id, merchant_qr_code_id, merchants(${MERCHANT_DESIGN_FIELDS}), loyalty_programs(name, display_mode, reward_threshold, reward_description), merchant_qr_codes(city, ${POINT_OF_SALE_DESIGN_FIELDS})`
     )
     .eq("public_id", publicId)
     .maybeSingle();
@@ -39,6 +39,7 @@ export async function GET(request: Request) {
 
   const merchant = card.merchants as unknown as MerchantDesignRow | null;
   const program = card.loyalty_programs as unknown as {
+    name: string;
     display_mode: "stamps" | "points";
     reward_threshold: number;
     reward_description: string;
@@ -76,6 +77,7 @@ export async function GET(request: Request) {
       const classId = await upsertLoyaltyClass({
         pointOfSaleId: card.merchant_qr_code_id,
         businessName: merchant.business_name,
+        programName: program.name,
         brandColorHex: design.brandColor,
         logoUrl: design.logoUrl,
         backgroundPhotoUrl: design.backgroundPhotoEnabled ? design.backgroundPhotoUrl : null,

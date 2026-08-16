@@ -35,7 +35,7 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
   const { data: card } = await db
     .from("loyalty_cards")
     .select(
-      `public_id, points, pass_serial_number, pass_auth_token, created_at, customers(full_name, phone), merchants(${MERCHANT_DESIGN_FIELDS}), loyalty_programs(display_mode, reward_threshold, reward_description), merchant_qr_codes(city, ${POINT_OF_SALE_DESIGN_FIELDS})`
+      `public_id, points, pass_serial_number, pass_auth_token, created_at, customers(full_name, phone), merchants(${MERCHANT_DESIGN_FIELDS}), loyalty_programs(name, display_mode, reward_threshold, reward_description), merchant_qr_codes(city, ${POINT_OF_SALE_DESIGN_FIELDS})`
     )
     .eq("pass_serial_number", serialNumber)
     .maybeSingle();
@@ -52,6 +52,7 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
 
   const merchant = card.merchants as unknown as MerchantDesignRow | null;
   const program = card.loyalty_programs as unknown as {
+    name: string;
     display_mode: "stamps" | "points";
     reward_threshold: number;
     reward_description: string;
@@ -82,7 +83,13 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
   const pass = new PKPass({}, certificates(), {
     serialNumber: card.pass_serial_number,
     description: `${merchant.business_name} — carte de fidélité`,
-    organizationName: merchant.business_name,
+    // Shown as the bold title on the lock-screen notification banner (and
+    // in the Wallet app's pass list) — must be the point of sale's own
+    // program name, not the merchant's business name: a merchant with
+    // several points of sale runs a differently-named program at each, and
+    // business_name alone (identical everywhere) can't tell a customer
+    // which one a notification is about.
+    organizationName: program.name,
     passTypeIdentifier: process.env.APPLE_PASS_TYPE_ID!,
     teamIdentifier: process.env.APPLE_TEAM_ID!,
     webServiceURL: `${appBaseUrl()}/api/wallet/apple`,

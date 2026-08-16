@@ -38,11 +38,12 @@ export async function resyncPointOfSaleWalletPasses(posId: string): Promise<void
 
   const { data: pos } = await db
     .from("merchant_qr_codes")
-    .select(`${POINT_OF_SALE_DESIGN_FIELDS}, merchants(${MERCHANT_DESIGN_FIELDS})`)
+    .select(`${POINT_OF_SALE_DESIGN_FIELDS}, merchants(${MERCHANT_DESIGN_FIELDS}), loyalty_programs(name)`)
     .eq("id", posId)
     .maybeSingle();
 
   const merchant = pos?.merchants as unknown as MerchantDesignRow | null;
+  const program = pos?.loyalty_programs as unknown as { name: string } | null;
   if (!pos || !merchant) return;
 
   const design = resolveCardDesign(pos as PointOfSaleDesignRow, merchant);
@@ -56,6 +57,7 @@ export async function resyncPointOfSaleWalletPasses(posId: string): Promise<void
     await upsertLoyaltyClass({
       pointOfSaleId: posId,
       businessName: merchant.business_name,
+      programName: program?.name ?? merchant.business_name,
       brandColorHex: design.brandColor,
       logoUrl: design.logoUrl,
       backgroundPhotoUrl: design.backgroundPhotoEnabled ? design.backgroundPhotoUrl : null,

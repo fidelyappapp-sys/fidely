@@ -20,7 +20,6 @@ export async function updateMerchantSettings(
     googleMapsLink: formData.get("googleMapsLink"),
     googleReviewLink: formData.get("googleReviewLink"),
     phone: formData.get("phone"),
-    address: formData.get("address"),
   });
 
   if (!parsed.success) {
@@ -34,7 +33,6 @@ export async function updateMerchantSettings(
       google_maps_link: parsed.data.googleMapsLink || null,
       google_review_link: parsed.data.googleReviewLink || null,
       phone: parsed.data.phone || null,
-      address: parsed.data.address || null,
     })
     .eq("id", merchant.merchantId);
 

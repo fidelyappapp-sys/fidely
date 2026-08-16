@@ -92,10 +92,6 @@ export default async function AdminMerchantDetailPage({
             <dd className="mt-0.5 font-medium">{extras.phone ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">Adresse</dt>
-            <dd className="mt-0.5 font-medium">{extras.address ?? "—"}</dd>
-          </div>
-          <div>
             <dt className="text-gray-500">Client Stripe</dt>
             <dd className="mt-0.5 font-medium">
               {merchant.stripe_customer_id ? (

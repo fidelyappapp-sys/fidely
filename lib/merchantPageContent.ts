@@ -3,7 +3,6 @@ import type { Database, OpeningHours } from "@/lib/supabase/types";
 
 export interface MerchantPageExtras {
   phone: string | null;
-  address: string | null;
   googleMapsLink: string | null;
   googleReviewLink: string | null;
   openingHours: OpeningHours;
@@ -11,7 +10,6 @@ export interface MerchantPageExtras {
 
 const EMPTY_EXTRAS: MerchantPageExtras = {
   phone: null,
-  address: null,
   googleMapsLink: null,
   googleReviewLink: null,
   openingHours: [],
@@ -30,7 +28,7 @@ export async function getMerchantPageExtras(
 ): Promise<MerchantPageExtras> {
   const { data, error } = await supabase
     .from("merchants")
-    .select("phone, address, google_maps_link, google_review_link, opening_hours")
+    .select("phone, google_maps_link, google_review_link, opening_hours")
     .eq("id", merchantId)
     .maybeSingle();
 
@@ -38,7 +36,6 @@ export async function getMerchantPageExtras(
 
   return {
     phone: data.phone,
-    address: data.address,
     googleMapsLink: data.google_maps_link,
     googleReviewLink: data.google_review_link,
     openingHours: data.opening_hours ?? [],

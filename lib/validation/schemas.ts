@@ -100,7 +100,6 @@ export const settingsSchema = z.object({
     .optional()
     .or(z.literal("")),
   phone: z.string().trim().max(30).optional().or(z.literal("")),
-  address: z.string().trim().max(300).optional().or(z.literal("")),
 });
 
 const weekDay = z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);

@@ -9,12 +9,10 @@ export function SettingsForm({
   googleMapsLink,
   googleReviewLink,
   phone,
-  address,
 }: {
   googleMapsLink: string | null;
   googleReviewLink: string | null;
   phone: string | null;
-  address: string | null;
 }) {
   const [state, formAction, pending] = useActionState(updateMerchantSettings, initialState);
 
@@ -35,19 +33,6 @@ export function SettingsForm({
         <p className="mt-1.5 text-xs text-gray-500">
           Affiché sur votre page publique avec un bouton &quot;Nous appeler&quot;.
         </p>
-      </div>
-
-      <div>
-        <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-          Adresse
-        </label>
-        <input
-          id="address"
-          name="address"
-          placeholder="12 rue de la Paix, 75002 Paris"
-          defaultValue={address ?? ""}
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
-        />
       </div>
 
       <div>

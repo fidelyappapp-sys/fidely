@@ -37,7 +37,6 @@ export default async function SettingsPage() {
             googleMapsLink={extras.googleMapsLink}
             googleReviewLink={extras.googleReviewLink}
             phone={extras.phone}
-            address={extras.address}
           />
         </div>
       </section>

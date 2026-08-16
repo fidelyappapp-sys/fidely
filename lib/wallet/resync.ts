@@ -108,7 +108,6 @@ export async function resyncMerchantProgramFields(
           // about the program, not the city — see buildTextModulesData's
           // comment in google/objects.ts.
           city: pointOfSale?.city,
-          publicId: card.public_id,
         }).catch((err) => console.error("Google wallet object program-field resync failed", err));
       })
   );
@@ -157,7 +156,6 @@ export async function resyncPointOfSaleCity(merchantQrCodeId: string, city: stri
           rewardDescription: program.reward_description,
           qrValue: signedQrPayload(card.public_id),
           city,
-          publicId: card.public_id,
         }).catch((err) => console.error("Google wallet object city resync failed", err))
       )
   );

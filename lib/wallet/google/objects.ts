@@ -1,5 +1,4 @@
 import { googleWalletAccessToken } from "./auth";
-import { buildPublicCardUrl } from "@/lib/env";
 
 const WALLET_API_BASE = "https://walletobjects.googleapis.com/walletobjects/v1";
 
@@ -96,22 +95,6 @@ function pointsLabel(displayMode: "stamps" | "points"): string {
   return displayMode === "stamps" ? "Tampons" : "Points";
 }
 
-// Same page used to add the card in the first place, which also carries
-// opening hours/menu/gallery/review-and-maps links below the card itself.
-// Google renders this as a tappable row on the card (unlike `messages`,
-// which only opens the object itself when tapped).
-function buildLinksModuleData(publicId: string) {
-  return {
-    uris: [
-      {
-        id: "public-page",
-        uri: buildPublicCardUrl(publicId),
-        description: "Notre page",
-      },
-    ],
-  };
-}
-
 // textModulesData is always sent in full (never a single new entry) — a
 // Wallet Objects PATCH replaces the whole array rather than merging by
 // entry, so every call site that touches it must include every module that
@@ -166,7 +149,6 @@ export async function upsertLoyaltyObject(params: {
       alternateText: `${params.points} ${label.toLowerCase()}`,
     },
     textModulesData: buildTextModulesData(params.rewardThreshold, params.rewardDescription, label, params.city),
-    linksModuleData: buildLinksModuleData(params.publicId),
   };
 
   const insertRes = await walletRequest("/loyaltyObject", {
@@ -257,11 +239,6 @@ export async function patchLoyaltyObjectProgramFields(
     // changed — omitting it would wipe the existing city module, since this
     // PATCH replaces textModulesData wholesale rather than merging entries.
     city?: string | null;
-    // Included so this resync also backfills linksModuleData onto cards
-    // issued before that field existed — a plain points/message PATCH
-    // never touches it (fields omitted from a PATCH body are left as-is),
-    // so without this, old cards would never pick it up.
-    publicId: string;
   }
 ): Promise<void> {
   const label = pointsLabel(params.displayMode);
@@ -276,7 +253,6 @@ export async function patchLoyaltyObjectProgramFields(
         alternateText: `${params.points} ${label.toLowerCase()}`,
       },
       textModulesData: buildTextModulesData(params.rewardThreshold, params.rewardDescription, label, params.city),
-      linksModuleData: buildLinksModuleData(params.publicId),
     }),
   });
 

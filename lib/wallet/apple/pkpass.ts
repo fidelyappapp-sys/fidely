@@ -1,7 +1,7 @@
 import { PKPass } from "passkit-generator";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { signedQrPayload } from "@/lib/qr/generate";
-import { appBaseUrl, buildPublicCardUrl } from "@/lib/env";
+import { appBaseUrl } from "@/lib/env";
 import { suggestTextColor } from "@/lib/color";
 import {
   resolveCardDesign,
@@ -129,16 +129,6 @@ export async function buildLoyaltyPkPass(serialNumber: string): Promise<Buffer |
     key: "threshold",
     label: "Objectif",
     value: `${program.reward_threshold} ${isStamps ? "tampons" : "points"}`,
-  });
-
-  // iOS auto-linkifies http(s) URLs in back-field values (Data Detectors),
-  // so this renders as a tappable link — the same page used to add the
-  // card, which also carries opening hours/menu/gallery/review-and-maps
-  // links below the card itself.
-  pass.backFields.push({
-    key: "public-page",
-    label: "Notre page",
-    value: buildPublicCardUrl(card.public_id),
   });
 
   // Generic notification channel: whoever wants to notify this customer

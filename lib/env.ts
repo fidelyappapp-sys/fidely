@@ -36,3 +36,11 @@ export function buildJoinUrl(slug: string, pointOfSaleId?: string) {
   const url = `${appBaseUrl()}/join/${slug}`;
   return pointOfSaleId ? `${url}?source=${encodeURIComponent(pointOfSaleId)}` : url;
 }
+
+// The customer-facing card page for an already-issued loyalty card — same
+// URL used to add the card to Wallet in the first place, and where opening
+// hours/menu/gallery/review-and-maps links live below the card itself. This
+// is what the "back of card" link on Apple/Google Wallet points to.
+export function buildPublicCardUrl(publicId: string) {
+  return `${appBaseUrl()}/c/${publicId}`;
+}

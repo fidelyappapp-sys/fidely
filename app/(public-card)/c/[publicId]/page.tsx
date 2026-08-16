@@ -16,14 +16,8 @@ import { PushOptIn } from "@/components/public-card/PushOptIn";
 import { OpenBadge } from "@/components/public-card/OpenBadge";
 import { OpeningHoursList } from "@/components/public-card/OpeningHoursList";
 import { MenuSection } from "@/components/public-card/MenuSection";
-import { GallerySection } from "@/components/public-card/GallerySection";
-import { ActionButtons } from "@/components/public-card/ActionButtons";
 import { Reveal } from "@/components/marketing/Reveal";
-import {
-  getMerchantGalleryPhotos,
-  getMerchantMenuItems,
-  getMerchantPageExtras,
-} from "@/lib/merchantPageContent";
+import { getMerchantMenuItems, getMerchantPageExtras } from "@/lib/merchantPageContent";
 
 export default async function PublicCardPage({
   params,
@@ -61,11 +55,10 @@ export default async function PublicCardPage({
     reward_description: string;
   } | null;
 
-  const [qrDataUrl, extras, menuItems, galleryPhotos, subscriptionRow] = await Promise.all([
+  const [qrDataUrl, extras, menuItems, subscriptionRow] = await Promise.all([
     qrCodeDataUrl(publicId),
     getMerchantPageExtras(db, card.merchant_id),
     getMerchantMenuItems(db, card.merchant_id),
-    getMerchantGalleryPhotos(db, card.merchant_id),
     db.from("merchants").select("subscription_status").eq("id", card.merchant_id).maybeSingle(),
   ]);
 
@@ -205,14 +198,6 @@ export default async function PublicCardPage({
           </>
         )}
 
-        <div className="mt-6">
-          <ActionButtons
-            phone={extras.phone}
-            mapsLink={extras.googleMapsLink}
-            reviewLink={extras.googleReviewLink}
-          />
-        </div>
-
         {extras.openingHours.length > 0 && (
           <Reveal>
             <section className="mt-10">
@@ -233,30 +218,6 @@ export default async function PublicCardPage({
               <MenuSection items={menuItems} />
             </section>
           </Reveal>
-        )}
-
-        {galleryPhotos.length > 0 && (
-          <Reveal>
-            <section className="mt-10">
-              <h2 className="mb-3 text-sm font-semibold tracking-wide text-gray-500 uppercase">
-                Galerie
-              </h2>
-              <GallerySection photos={galleryPhotos} />
-            </section>
-          </Reveal>
-        )}
-
-        {extras.googleMapsLink && (
-          <div className="mt-10 text-center">
-            <a
-              href={extras.googleMapsLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-medium text-gray-500 underline decoration-gray-300 underline-offset-4 hover:text-gray-700"
-            >
-              Voir la page Google Maps
-            </a>
-          </div>
         )}
       </div>
     </div>

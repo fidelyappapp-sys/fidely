@@ -64,40 +64,6 @@ export function OnboardingInfosForm() {
         />
       </div>
 
-      <div>
-        <label htmlFor="slug" className="block text-sm font-medium text-gray-700">
-          Lien public
-        </label>
-        <div className="mt-1 flex items-center rounded-lg border border-gray-300 px-3 py-2 text-sm">
-          <span className="text-gray-400">fidely.app/join/</span>
-          <input
-            id="slug"
-            name="slug"
-            required
-            placeholder="cafe-des-arts"
-            pattern="[a-z0-9-]+"
-            className="flex-1 outline-none"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label htmlFor="googleReviewLink" className="block text-sm font-medium text-gray-700">
-          Lien d&apos;avis Google <span className="font-normal text-gray-400">(optionnel)</span>
-        </label>
-        <input
-          id="googleReviewLink"
-          name="googleReviewLink"
-          type="url"
-          placeholder="https://g.page/r/..."
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          Utilisé pour le message envoyé automatiquement à vos clients 10 minutes après chaque
-          scan. Modifiable plus tard dans Réglages.
-        </p>
-      </div>
-
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
 
       <button

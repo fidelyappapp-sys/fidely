@@ -13,20 +13,6 @@ export const onboardingInfosSchema = z.object({
     .max(20)
     .regex(/^[0-9+\s.-]+$/, "Numéro de téléphone invalide"),
   businessName: z.string().trim().min(2).max(120),
-  slug: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .min(2)
-    .max(60)
-    .regex(/^[a-z0-9-]+$/, "Lettres minuscules, chiffres et tirets uniquement"),
-  googleReviewLink: z
-    .string()
-    .trim()
-    .url("Lien invalide")
-    .max(500)
-    .optional()
-    .or(z.literal("")),
 });
 
 export const programUpdateSchema = z.discriminatedUnion("displayMode", [

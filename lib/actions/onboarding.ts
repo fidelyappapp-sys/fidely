@@ -13,6 +13,32 @@ export interface OnboardingState {
   error?: string;
 }
 
+// Derives the /join/<slug> URL from the business name instead of asking
+// for it at signup — merchants don't need to think about a technical slug
+// before they've even seen the app. Falls back to "commerce" for names with
+// no latin characters, and appends a short random suffix on collision.
+async function generateUniqueSlug(
+  db: ReturnType<typeof createServiceRoleClient>,
+  businessName: string
+): Promise<string> {
+  const base =
+    businessName
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 50) || "commerce";
+
+  let slug = base;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data: existing } = await db.from("merchants").select("id").eq("slug", slug).maybeSingle();
+    if (!existing) return slug;
+    slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+  }
+  return `${base}-${Date.now().toString(36)}`;
+}
+
 // Step 1 — creates the merchant in draft form (onboarding_completed: false)
 // with just enough to move on. Brand color, logo, sector, program mode and
 // reward are all filled in on the next two steps, which edit this same row
@@ -35,15 +61,13 @@ export async function createMerchantDraft(
     ownerLastName: formData.get("ownerLastName"),
     ownerPhone: formData.get("ownerPhone"),
     businessName: formData.get("businessName"),
-    slug: formData.get("slug"),
-    googleReviewLink: formData.get("googleReviewLink"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
-  const { ownerFirstName, ownerLastName, ownerPhone, businessName, slug, googleReviewLink } = parsed.data;
+  const { ownerFirstName, ownerLastName, ownerPhone, businessName } = parsed.data;
 
   // Onboarding creates merchants/merchant_staff rows, which have no
   // client-facing insert RLS policy (chicken-and-egg: is_merchant_staff()
@@ -52,15 +76,7 @@ export async function createMerchantDraft(
   // trusted session above.
   const db = createServiceRoleClient();
 
-  const { data: existing } = await db
-    .from("merchants")
-    .select("id")
-    .eq("slug", slug)
-    .maybeSingle();
-
-  if (existing) {
-    return { error: "Ce lien (slug) est déjà utilisé, choisissez-en un autre." };
-  }
+  const slug = await generateUniqueSlug(db, businessName);
 
   const { data: merchant, error: merchantError } = await db
     .from("merchants")
@@ -71,7 +87,6 @@ export async function createMerchantDraft(
       owner_first_name: ownerFirstName,
       owner_last_name: ownerLastName,
       owner_phone: ownerPhone,
-      google_review_link: googleReviewLink || null,
       onboarding_completed: false,
     })
     .select("id")

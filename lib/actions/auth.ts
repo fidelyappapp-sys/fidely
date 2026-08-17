@@ -12,7 +12,7 @@ export interface AuthActionState {
 export async function signUpWithPassword(
   _prevState: AuthActionState,
   formData: FormData
-): Promise<AuthActionState> {
+): Promise<AuthActionState & { sent?: boolean }> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
@@ -21,13 +21,24 @@ export async function signUpWithPassword(
   }
 
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: { emailRedirectTo: `${appBaseUrl()}/auth/confirm?next=/onboarding` },
   });
 
   if (error) return { error: error.message };
+
+  // No session means email confirmation is required (or, if this address
+  // was already used, Supabase's signUp responds identically — a session
+  // here — rather than an error, to avoid leaking which emails are
+  // registered). Redirecting straight to /onboarding in that case would
+  // silently bounce the user back out with zero feedback, since there's no
+  // authenticated session yet — show a clear "check your email" message
+  // instead of the blind redirect.
+  if (!data.session) {
+    return { sent: true };
+  }
 
   redirect("/onboarding");
 }

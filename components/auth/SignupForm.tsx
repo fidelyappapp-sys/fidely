@@ -4,10 +4,29 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { signUpWithPassword, type AuthActionState } from "@/lib/actions/auth";
 
-const initialState: AuthActionState = {};
+const initialState: AuthActionState & { sent?: boolean } = {};
 
 export function SignupForm() {
   const [state, formAction, pending] = useActionState(signUpWithPassword, initialState);
+
+  if (state.sent) {
+    return (
+      <div className="space-y-4 text-center">
+        <h1 className="text-xl font-semibold">Vérifiez votre boîte mail</h1>
+        <p className="text-sm text-gray-600">
+          Un email de confirmation vient d&apos;être envoyé. Cliquez sur le lien qu&apos;il
+          contient pour activer votre compte et continuer l&apos;inscription.
+        </p>
+        <p className="text-sm text-gray-500">
+          Rien reçu ? Vérifiez vos spams, ou{" "}
+          <Link href="/signup" className="text-gray-900 hover:underline">
+            réessayez avec une autre adresse
+          </Link>
+          .
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form action={formAction} className="space-y-4">

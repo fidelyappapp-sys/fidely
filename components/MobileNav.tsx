@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { signOut } from "@/lib/actions/auth";
 
 export function MobileNav({
   navItems,
@@ -84,6 +85,14 @@ export function MobileNav({
               </Link>
             ))}
           </nav>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
+            >
+              Se déconnecter
+            </button>
+          </form>
         </div>
       </div>
     </>

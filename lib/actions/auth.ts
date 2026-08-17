@@ -53,7 +53,15 @@ export async function signInWithPassword(
   const supabase = await createServerSupabaseClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) return { error: "Email ou mot de passe incorrect." };
+  if (error) {
+    if (error.code === "email_not_confirmed") {
+      return {
+        error:
+          "Votre email n'est pas encore confirmé. Vérifiez votre boîte mail et cliquez sur le lien de confirmation.",
+      };
+    }
+    return { error: "Email ou mot de passe incorrect." };
+  }
 
   revalidatePath("/dashboard");
   redirect("/dashboard");

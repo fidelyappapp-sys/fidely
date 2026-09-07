@@ -41,6 +41,12 @@ function OrderList({ orders }: { orders: AdminShopOrder[] }) {
               ))}
             </ul>
 
+            {order.plaqueCodes.length > 0 && (
+              <p className="mt-2 text-sm text-gray-500">
+                Codes à encoder sur les plaques : {order.plaqueCodes.map((code) => `/p/${code}`).join(", ")}
+              </p>
+            )}
+
             <p className="mt-2 text-sm font-medium text-gray-900">
               Total : {(order.amountCents / 100).toFixed(2)}€
             </p>

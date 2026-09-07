@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, OpeningHours } from "@/lib/supabase/types";
+import type { Database, HubTabKey, OpeningHours, SocialPlatform } from "@/lib/supabase/types";
 
 export interface MerchantPageExtras {
   phone: string | null;
@@ -81,4 +81,40 @@ export async function getMerchantGalleryPhotos(
     .order("position", { ascending: true });
 
   return error || !data ? [] : data;
+}
+
+export interface SocialLinkRow {
+  id: string;
+  platform: SocialPlatform;
+  url: string;
+}
+
+// Same "not-yet-migrated" tolerance as the helpers above — only used by the
+// Hub page/editor (0028_merchant_hub_config.sql).
+export async function getMerchantSocialLinks(
+  supabase: SupabaseClient<Database>,
+  merchantId: string
+): Promise<SocialLinkRow[]> {
+  const { data, error } = await supabase
+    .from("merchant_social_links")
+    .select("id, platform, url")
+    .eq("merchant_id", merchantId)
+    .order("position", { ascending: true });
+
+  return error || !data ? [] : data;
+}
+
+const DEFAULT_ENABLED_TABS: HubTabKey[] = ["menu", "avis", "contact"];
+
+export async function getMerchantHubConfig(
+  supabase: SupabaseClient<Database>,
+  merchantId: string
+): Promise<{ enabledTabs: HubTabKey[] }> {
+  const { data, error } = await supabase
+    .from("merchant_hub_config")
+    .select("enabled_tabs")
+    .eq("merchant_id", merchantId)
+    .maybeSingle();
+
+  return { enabledTabs: error || !data ? DEFAULT_ENABLED_TABS : data.enabled_tabs };
 }

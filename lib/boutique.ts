@@ -1,4 +1,4 @@
-import type { ShopOrderItem } from "@/lib/supabase/types";
+import type { PlaqueTier, ShopOrderItem } from "@/lib/supabase/types";
 
 export interface BoutiqueProduct {
   key: ShopOrderItem["key"];
@@ -17,27 +17,53 @@ export const NEW_SHOP_KIT_PRODUCT: BoutiqueProduct = {
   priceEnvVar: "STRIPE_PRICE_NEW_SHOP_KIT",
 };
 
-// Plaque avis Google — sold from /boutique (dashboard) and publicly from
-// app/(marketing)/avis-google — priced by volume tier (the reached tier
-// applies to every unit in the order, not just the ones past the
-// threshold), so it can't be modeled as a fixed-price Stripe Price; priced
-// dynamically at checkout via inline price_data instead (see
-// app/api/boutique/nfc-checkout and app/api/public/nfc-checkout).
+// Plaque avis Google — sold from /boutique (dashboard, all 3 tiers) and
+// publicly from app/(marketing)/avis-google (Avis tier only) — priced by
+// volume bracket (the reached bracket applies to every unit ever owned, not
+// just the ones past the threshold), so it can't be modeled as a
+// fixed-price Stripe Price; priced dynamically at checkout via inline
+// price_data instead (see app/api/boutique/nfc-checkout and
+// app/api/public/nfc-checkout).
 export const TIERED_NFC_PRODUCT = { key: "nfc_card" as const, label: "Plaque avis Google", unitNoun: "plaque" };
-
-export const TIERED_NFC_PRICE_TIERS: { minQty: number; maxQty: number; unitAmountCents: number }[] = [
-  { minQty: 1, maxQty: 1, unitAmountCents: 3000 },
-  { minQty: 2, maxQty: 3, unitAmountCents: 2800 },
-  { minQty: 4, maxQty: 5, unitAmountCents: 2600 },
-  { minQty: 6, maxQty: 9, unitAmountCents: 2400 },
-  { minQty: 10, maxQty: Infinity, unitAmountCents: 2200 },
-];
 
 export const TIERED_NFC_SHIPPING_CENTS = 399;
 
-export function tieredNfcUnitPriceCents(quantity: number): number {
-  const tier = TIERED_NFC_PRICE_TIERS.find((t) => quantity >= t.minQty && quantity <= t.maxQty);
-  return (tier ?? TIERED_NFC_PRICE_TIERS[TIERED_NFC_PRICE_TIERS.length - 1]).unitAmountCents;
+export const PLAQUE_TIER_LABELS: Record<PlaqueTier, string> = {
+  avis: "Avis",
+  presence: "Présence",
+  pro: "Pro",
+};
+
+export const PLAQUE_TIER_BASE_PRICE_CENTS: Record<PlaqueTier, number> = {
+  avis: 3000,
+  presence: 4000,
+  pro: 4000,
+};
+
+export const PLAQUE_PRO_SUBSCRIPTION_CENTS = { month: 699, year: 5499 };
+
+// Applies uniformly to whichever base price (Avis: 30€, Présence/Pro: 40€)
+// the order is for — the discount schedule is independent of the
+// subscription price, which stays fixed regardless of quantity.
+export const PLAQUE_DISCOUNT_BRACKETS: { minQty: number; maxQty: number; discountPct: number }[] = [
+  { minQty: 1, maxQty: 1, discountPct: 0 },
+  { minQty: 2, maxQty: 2, discountPct: 10 },
+  { minQty: 3, maxQty: 4, discountPct: 15 },
+  { minQty: 5, maxQty: 9, discountPct: 20 },
+  { minQty: 10, maxQty: 19, discountPct: 30 },
+  { minQty: 20, maxQty: 39, discountPct: 40 },
+  { minQty: 40, maxQty: Infinity, discountPct: 50 },
+];
+
+// Lifetime cumulative discount: the bracket reached by (already owned + new
+// quantity) applies to every unit of THIS order, never retroactively to
+// units already invoiced in past orders.
+export function plaqueUnitPriceCents(tier: PlaqueTier, alreadyOwned: number, newQuantity: number): number {
+  const totalAfterOrder = alreadyOwned + newQuantity;
+  const bracket =
+    PLAQUE_DISCOUNT_BRACKETS.find((b) => totalAfterOrder >= b.minQty && totalAfterOrder <= b.maxQty) ??
+    PLAQUE_DISCOUNT_BRACKETS[PLAQUE_DISCOUNT_BRACKETS.length - 1];
+  return Math.round(PLAQUE_TIER_BASE_PRICE_CENTS[tier] * (1 - bracket.discountPct / 100));
 }
 
 // Individual replacement parts for the Plaque avis Google — flat prices, no

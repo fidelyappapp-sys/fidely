@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
 import { requireMerchantContext } from "@/lib/merchant";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { appBaseUrl, isStripeConfigured } from "@/lib/env";
 import { nfcCardCheckoutSchema } from "@/lib/validation/schemas";
-import { tieredNfcUnitPriceCents, TIERED_NFC_SHIPPING_CENTS, TIERED_NFC_PRODUCT } from "@/lib/boutique";
+import { PLAQUE_TIER_LABELS, TIERED_NFC_SHIPPING_CENTS, TIERED_NFC_PRODUCT, plaqueUnitPriceCents } from "@/lib/boutique";
+import { getMerchantOwnedPlaqueCount } from "@/lib/boutique.server";
 import { getOrCreateStripeCustomerId } from "@/lib/stripe/customer";
 import type { KitShippingAddress, ShopOrderItem } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
-// Separate from /api/boutique/checkout: the NFC card is priced by volume
-// tier (see nfcCardUnitPriceCents in lib/boutique.ts) rather than a fixed
-// per-unit Stripe Price, so its Checkout line item is built from inline
-// price_data instead of a pre-created STRIPE_PRICE_* env var — same
-// dynamic-amount approach chooseKitDelivery already uses for the 3,99€
-// postal fee (lib/actions/kitDelivery.ts).
+// Separate from /api/boutique/checkout: the plaque is priced by lifetime
+// cumulative volume bracket (see plaqueUnitPriceCents in lib/boutique.ts)
+// rather than a fixed per-unit Stripe Price, so its Checkout line item is
+// built from inline price_data instead of a pre-created STRIPE_PRICE_* env
+// var — same dynamic-amount approach chooseKitDelivery already uses for the
+// 3,99€ postal fee (lib/actions/kitDelivery.ts).
 export async function POST(request: Request) {
   if (!isStripeConfigured) {
     return NextResponse.json({ error: "La facturation n'est pas encore configurée." }, { status: 503 });
@@ -32,13 +33,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Requête invalide." }, { status: 400 });
   }
 
-  const { quantity, deliveryMethod } = parsed.data;
-  const unitAmountCents = tieredNfcUnitPriceCents(quantity);
+  const { quantity, deliveryMethod, tier } = parsed.data;
+  const db = createServiceRoleClient();
+
+  const { data: existingSubscription } = await db
+    .from("merchant_plaque_subscriptions")
+    .select("status")
+    .eq("merchant_id", merchant.merchantId)
+    .maybeSingle();
+  const hasActivePlaqueSubscription = existingSubscription?.status === "active";
+
+  if (tier === "pro" && !hasActivePlaqueSubscription && !parsed.data.billingInterval) {
+    return NextResponse.json({ error: "Choisissez un mode de facturation pour l'abonnement Pro." }, { status: 400 });
+  }
+
+  const alreadyOwned = await getMerchantOwnedPlaqueCount(merchant.merchantId);
+  const unitAmountCents = plaqueUnitPriceCents(tier, alreadyOwned, quantity);
   const shippingCents = deliveryMethod === "postal_shipping" ? TIERED_NFC_SHIPPING_CENTS : 0;
   const amountCents = unitAmountCents * quantity + shippingCents;
 
   const orderItems: ShopOrderItem[] = [
-    { key: TIERED_NFC_PRODUCT.key, label: TIERED_NFC_PRODUCT.label, quantity, unitAmountCents },
+    {
+      key: TIERED_NFC_PRODUCT.key,
+      label: `${TIERED_NFC_PRODUCT.label} — ${PLAQUE_TIER_LABELS[tier]}`,
+      quantity,
+      unitAmountCents,
+    },
   ];
 
   const shippingAddress: KitShippingAddress | null =
@@ -62,6 +82,7 @@ export async function POST(request: Request) {
       amount_cents: amountCents,
       delivery_method: deliveryMethod,
       shipping_address: shippingAddress,
+      tier,
     })
     .select("id")
     .single();
@@ -81,7 +102,8 @@ export async function POST(request: Request) {
   });
 
   const lineItems: Array<{
-    price_data: { currency: string; unit_amount: number; product_data: { name: string } };
+    price?: string;
+    price_data?: { currency: string; unit_amount: number; product_data: { name: string } };
     quantity: number;
   }> = [
     {
@@ -96,11 +118,34 @@ export async function POST(request: Request) {
     });
   }
 
+  const wantsNewSubscription = tier === "pro" && !hasActivePlaqueSubscription;
+  if (wantsNewSubscription) {
+    const billingInterval = parsed.data.billingInterval!;
+    const priceId =
+      billingInterval === "month"
+        ? process.env.STRIPE_PRICE_PLAQUE_PRO_MONTHLY
+        : process.env.STRIPE_PRICE_PLAQUE_PRO_ANNUAL;
+    if (!priceId) {
+      return NextResponse.json({ error: "Abonnement Pro non configuré côté serveur." }, { status: 503 });
+    }
+    lineItems.push({ price: priceId, quantity: 1 });
+  }
+
   const session = await stripe().checkout.sessions.create({
-    mode: "payment",
+    mode: wantsNewSubscription ? "subscription" : "payment",
     customer: customerId,
     line_items: lineItems,
-    metadata: { type: "boutique_order", order_id: order.id, merchant_id: merchant.merchantId },
+    metadata: wantsNewSubscription
+      ? {
+          type: "plaque_pro_checkout",
+          order_id: order.id,
+          merchant_id: merchant.merchantId,
+          billing_interval: parsed.data.billingInterval!,
+        }
+      : { type: "boutique_order", order_id: order.id, merchant_id: merchant.merchantId },
+    subscription_data: wantsNewSubscription
+      ? { metadata: { subscription_kind: "plaque_pro", merchant_id: merchant.merchantId } }
+      : undefined,
     success_url: `${appBaseUrl()}/boutique?checkout=success`,
     cancel_url: `${appBaseUrl()}/boutique?checkout=cancelled`,
   });

@@ -128,16 +128,37 @@ export interface AdminShopOrder {
   deliveryMethod: string | null;
   shippingAddress: KitShippingAddress | null;
   createdAt: string;
+  // The plaques minted for this order once paid (see app/api/stripe/webhook
+  // -> mintPlaques) — the short codes staff must encode onto each physical
+  // unit's QR/NFC. Empty until the webhook has run, or for orders that
+  // predate this column (nothing to encode for those).
+  plaqueCodes: string[];
+}
+
+// Batched per the Promise.all idiom already used elsewhere in this file —
+// one query per order table, not one per order row.
+async function getPlaqueCodesByOrderId(db: Db, column: "shop_order_id" | "public_shop_order_id"): Promise<Map<string, string[]>> {
+  const { data } = await db.from("plaques").select(`short_code, ${column}`).not(column, "is", null);
+  const map = new Map<string, string[]>();
+  for (const row of (data ?? []) as unknown as { short_code: string; shop_order_id?: string; public_shop_order_id?: string }[]) {
+    const orderId = column === "shop_order_id" ? row.shop_order_id : row.public_shop_order_id;
+    if (!orderId) continue;
+    map.set(orderId, [...(map.get(orderId) ?? []), row.short_code]);
+  }
+  return map;
 }
 
 // Excludes "pending" (abandoned/incomplete checkouts never paid) — only
 // orders that actually went through show up for the admin to fulfill.
 export async function getShopOrders(db: Db): Promise<AdminShopOrder[]> {
-  const { data } = await db
-    .from("shop_orders")
-    .select("id, merchant_id, items, amount_cents, status, delivery_method, shipping_address, created_at, merchants(business_name)")
-    .in("status", ["paid", "shipped", "delivered"])
-    .order("created_at", { ascending: false });
+  const [{ data }, plaqueCodesByOrderId] = await Promise.all([
+    db
+      .from("shop_orders")
+      .select("id, merchant_id, items, amount_cents, status, delivery_method, shipping_address, created_at, merchants(business_name)")
+      .in("status", ["paid", "shipped", "delivered"])
+      .order("created_at", { ascending: false }),
+    getPlaqueCodesByOrderId(db, "shop_order_id"),
+  ]);
 
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -148,6 +169,7 @@ export async function getShopOrders(db: Db): Promise<AdminShopOrder[]> {
     deliveryMethod: row.delivery_method,
     shippingAddress: row.shipping_address as KitShippingAddress | null,
     createdAt: row.created_at,
+    plaqueCodes: plaqueCodesByOrderId.get(row.id) ?? [],
   }));
 }
 
@@ -155,11 +177,14 @@ export async function getShopOrders(db: Db): Promise<AdminShopOrder[]> {
 // 0025_public_shop_orders.sql) — no merchant to join, businessName falls
 // back to the buyer's name/email so this fits the same admin list shape.
 export async function getPublicShopOrders(db: Db): Promise<AdminShopOrder[]> {
-  const { data } = await db
-    .from("public_shop_orders")
-    .select("id, item_key, quantity, unit_amount_cents, amount_cents, status, shipping_address, buyer_email, buyer_name, created_at")
-    .in("status", ["paid", "shipped", "delivered"])
-    .order("created_at", { ascending: false });
+  const [{ data }, plaqueCodesByOrderId] = await Promise.all([
+    db
+      .from("public_shop_orders")
+      .select("id, item_key, quantity, unit_amount_cents, amount_cents, status, shipping_address, buyer_email, buyer_name, created_at")
+      .in("status", ["paid", "shipped", "delivered"])
+      .order("created_at", { ascending: false }),
+    getPlaqueCodesByOrderId(db, "public_shop_order_id"),
+  ]);
 
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -170,6 +195,7 @@ export async function getPublicShopOrders(db: Db): Promise<AdminShopOrder[]> {
     deliveryMethod: "postal_shipping",
     shippingAddress: row.shipping_address as KitShippingAddress | null,
     createdAt: row.created_at,
+    plaqueCodes: plaqueCodesByOrderId.get(row.id) ?? [],
   }));
 }
 
@@ -290,11 +316,14 @@ export async function getAdminAuditLog(db: Db, merchantId?: string): Promise<Adm
 }
 
 export async function getShopOrdersForMerchant(db: Db, merchantId: string): Promise<AdminShopOrder[]> {
-  const { data } = await db
-    .from("shop_orders")
-    .select("id, merchant_id, items, amount_cents, status, delivery_method, shipping_address, created_at, merchants(business_name)")
-    .eq("merchant_id", merchantId)
-    .order("created_at", { ascending: false });
+  const [{ data }, plaqueCodesByOrderId] = await Promise.all([
+    db
+      .from("shop_orders")
+      .select("id, merchant_id, items, amount_cents, status, delivery_method, shipping_address, created_at, merchants(business_name)")
+      .eq("merchant_id", merchantId)
+      .order("created_at", { ascending: false }),
+    getPlaqueCodesByOrderId(db, "shop_order_id"),
+  ]);
 
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -305,5 +334,6 @@ export async function getShopOrdersForMerchant(db: Db, merchantId: string): Prom
     deliveryMethod: row.delivery_method,
     shippingAddress: row.shipping_address as KitShippingAddress | null,
     createdAt: row.created_at,
+    plaqueCodes: plaqueCodesByOrderId.get(row.id) ?? [],
   }));
 }

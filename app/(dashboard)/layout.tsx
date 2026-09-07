@@ -18,6 +18,7 @@ const navItems = [
   { href: "/dashboard/notifications", label: "Notifications" },
   { href: "/dashboard/billing", label: "Facturation" },
   { href: "/boutique", label: "Boutique" },
+  { href: "/dashboard/hub", label: "Ma page Hub" },
   { href: "/dashboard/staff", label: "Équipe" },
 ];
 

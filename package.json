@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "stripe:setup": "tsx scripts/stripe-setup.ts",
-    "stripe:boutique-setup": "tsx scripts/stripe-boutique-setup.ts"
+    "stripe:boutique-setup": "tsx scripts/stripe-boutique-setup.ts",
+    "stripe:plaque-pro-setup": "tsx scripts/stripe-plaque-pro-setup.ts"
   },
   "dependencies": {
     "@parse/node-apn": "^7.1.0",

@@ -61,6 +61,10 @@ export interface KitShippingAddress {
 
 export type ShopOrderStatus = "pending" | "paid" | "shipped" | "delivered";
 
+export type PlaqueTier = "avis" | "presence" | "pro";
+export type HubTabKey = "menu" | "avis" | "social" | "contact";
+export type SocialPlatform = "instagram" | "facebook" | "tiktok" | "website" | "other";
+
 export interface ShopOrderItem {
   key: "display_stand" | "sheet" | "qr" | "full_kit" | "new_shop_kit" | "nfc_card" | "nfc_loyalty_card" | "nfc_chip";
   label: string;
@@ -535,6 +539,7 @@ export interface Database {
           shipping_address: KitShippingAddress | null;
           status: ShopOrderStatus;
           stripe_checkout_session_id: string | null;
+          tier: PlaqueTier | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["shop_orders"]["Row"]> & {
@@ -565,6 +570,7 @@ export interface Database {
           buyer_name: string | null;
           status: ShopOrderStatus;
           stripe_checkout_session_id: string | null;
+          tier: "avis";
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["public_shop_orders"]["Row"]> & {
@@ -575,6 +581,186 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["public_shop_orders"]["Row"]>;
         Relationships: [];
+      };
+      avis_links: {
+        Row: {
+          id: string;
+          public_shop_order_id: string;
+          buyer_email: string;
+          google_review_link: string;
+          edit_token_hash: string | null;
+          edit_token_rotated_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["avis_links"]["Row"]> & {
+          public_shop_order_id: string;
+          buyer_email: string;
+          google_review_link: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["avis_links"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "avis_links_public_shop_order_id_fkey";
+            columns: ["public_shop_order_id"];
+            isOneToOne: true;
+            referencedRelation: "public_shop_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      plaques: {
+        Row: {
+          id: string;
+          short_code: string;
+          tier: PlaqueTier;
+          merchant_id: string | null;
+          avis_link_id: string | null;
+          label: string | null;
+          shop_order_id: string | null;
+          public_shop_order_id: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["plaques"]["Row"]> & {
+          tier: PlaqueTier;
+        };
+        Update: Partial<Database["public"]["Tables"]["plaques"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "plaques_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plaques_avis_link_id_fkey";
+            columns: ["avis_link_id"];
+            isOneToOne: false;
+            referencedRelation: "avis_links";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      merchant_hub_config: {
+        Row: {
+          merchant_id: string;
+          enabled_tabs: HubTabKey[];
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["merchant_hub_config"]["Row"]> & {
+          merchant_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["merchant_hub_config"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "merchant_hub_config_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: true;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      merchant_social_links: {
+        Row: {
+          id: string;
+          merchant_id: string;
+          platform: SocialPlatform;
+          url: string;
+          position: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["merchant_social_links"]["Row"]> & {
+          merchant_id: string;
+          platform: SocialPlatform;
+          url: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["merchant_social_links"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "merchant_social_links_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      merchant_hub_modifications: {
+        Row: {
+          id: number;
+          merchant_id: string;
+          year_month: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["merchant_hub_modifications"]["Row"]> & {
+          merchant_id: string;
+          year_month: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["merchant_hub_modifications"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "merchant_hub_modifications_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: false;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      merchant_plaque_subscriptions: {
+        Row: {
+          merchant_id: string;
+          stripe_customer_id: string;
+          stripe_subscription_id: string;
+          stripe_subscription_item_id: string | null;
+          billing_interval: "month" | "year";
+          status: string;
+          current_period_end: string | null;
+          canceled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["merchant_plaque_subscriptions"]["Row"]> & {
+          merchant_id: string;
+          stripe_customer_id: string;
+          stripe_subscription_id: string;
+          billing_interval: "month" | "year";
+        };
+        Update: Partial<Database["public"]["Tables"]["merchant_plaque_subscriptions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "merchant_plaque_subscriptions_merchant_id_fkey";
+            columns: ["merchant_id"];
+            isOneToOne: true;
+            referencedRelation: "merchants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      merchant_menu_translations: {
+        Row: {
+          menu_item_id: string;
+          locale: string;
+          translated_name: string;
+          translated_description: string | null;
+          translated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["merchant_menu_translations"]["Row"]> & {
+          menu_item_id: string;
+          locale: string;
+          translated_name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["merchant_menu_translations"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "merchant_menu_translations_menu_item_id_fkey";
+            columns: ["menu_item_id"];
+            isOneToOne: false;
+            referencedRelation: "merchant_menu_items";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       platform_admins: {
         Row: {
@@ -665,6 +851,10 @@ export interface Database {
       prune_rate_limit_events: {
         Args: Record<string, never>;
         Returns: undefined;
+      };
+      try_record_hub_modification: {
+        Args: { target_merchant_id: string; monthly_limit: number };
+        Returns: boolean;
       };
       find_birthday_cards: {
         Args: Record<string, never>;

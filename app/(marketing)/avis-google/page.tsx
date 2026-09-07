@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { PublicNfcOrderForm } from "@/components/marketing/PublicNfcOrderForm";
+import { PLAQUE_TIER_BASE_PRICE_CENTS, PLAQUE_TIER_LABELS, PLAQUE_PRO_SUBSCRIPTION_CENTS } from "@/lib/boutique";
 
 const PACK_CONTENT = [
   "1 plaque NFC + QR code",
@@ -32,6 +33,10 @@ const HIGHLIGHTS = [
     description: "Design professionnel, installation facile, résultat immédiat.",
   },
 ];
+
+function formatEuros(cents: number): string {
+  return (cents / 100).toFixed(2).replace(".", ",") + "€";
+}
 
 export default function AvisGooglePage() {
   return (
@@ -92,8 +97,62 @@ export default function AvisGooglePage() {
         </div>
       </div>
 
-      <div className="mt-6">
-        <PublicNfcOrderForm />
+      <div className="mt-16">
+        <h2 className="text-center text-2xl font-bold text-gray-900">Choisissez votre palier</h2>
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          <div className="flex flex-col rounded-3xl border border-gray-100 p-6">
+            <p className="font-semibold text-gray-900">{PLAQUE_TIER_LABELS.avis}</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{formatEuros(PLAQUE_TIER_BASE_PRICE_CENTS.avis)}</p>
+            <p className="mt-1 text-xs text-gray-500">Paiement unique, dégressif selon la quantité</p>
+            <p className="mt-3 text-sm text-gray-600">
+              Redirection directe vers votre lien d&apos;avis Google. Aucun compte requis, aucune page
+              intermédiaire.
+            </p>
+            <div className="mt-6">
+              <PublicNfcOrderForm />
+            </div>
+          </div>
+
+          <div className="flex flex-col rounded-3xl border border-gray-100 p-6">
+            <p className="font-semibold text-gray-900">{PLAQUE_TIER_LABELS.presence}</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{formatEuros(PLAQUE_TIER_BASE_PRICE_CENTS.presence)}</p>
+            <p className="mt-1 text-xs text-gray-500">Paiement unique, dégressif selon la quantité</p>
+            <p className="mt-3 text-sm text-gray-600">
+              Une page Hub avec plusieurs onglets (menu, réseaux sociaux, avis, contact) — 3 modifications par
+              mois incluses. Nécessite un compte commerçant.
+            </p>
+            <Link
+              href="/signup"
+              className="mt-auto block rounded-full bg-gray-900 px-6 py-3 text-center font-medium text-white hover:bg-gray-700"
+            >
+              Créez votre compte pour commander
+            </Link>
+          </div>
+
+          <div className="flex flex-col rounded-3xl border-2 border-indigo-600 p-6">
+            <p className="font-semibold text-gray-900">{PLAQUE_TIER_LABELS.pro}</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {formatEuros(PLAQUE_TIER_BASE_PRICE_CENTS.pro)} + {formatEuros(PLAQUE_PRO_SUBSCRIPTION_CENTS.month)}/mois
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              ou {formatEuros(PLAQUE_PRO_SUBSCRIPTION_CENTS.year)}/an — prix fixe par commerce
+            </p>
+            <p className="mt-3 text-sm text-gray-600">
+              Modifications illimitées, menu multilingue traduit automatiquement, tous les onglets. Nécessite un
+              compte commerçant.
+            </p>
+            <Link
+              href="/signup"
+              className="mt-auto block rounded-full bg-indigo-600 px-6 py-3 text-center font-medium text-white hover:bg-indigo-500"
+            >
+              Créez votre compte pour commander
+            </Link>
+          </div>
+        </div>
+        <p className="mt-6 text-center text-xs text-gray-400">
+          Le tarif dégressif s&apos;applique au prix de la plaque, cumulé à vie sur l&apos;ensemble de vos
+          commandes — indépendamment du prix de l&apos;abonnement Pro, fixe quel que soit le nombre de plaques.
+        </p>
       </div>
 
       <p className="mt-10 text-center text-sm text-gray-500">

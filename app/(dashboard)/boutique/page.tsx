@@ -1,6 +1,7 @@
 import { requireMerchantContext } from "@/lib/merchant";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isStripeConfigured } from "@/lib/env";
+import { getMerchantOwnedPlaqueCount } from "@/lib/boutique.server";
 import { NfcCardOrderForm } from "@/components/dashboard/NfcCardOrderForm";
 import { PlaqueComponentsOrderForm } from "@/components/dashboard/PlaqueComponentsOrderForm";
 import { AddMerchantForm } from "@/components/dashboard/AddMerchantForm";
@@ -12,12 +13,21 @@ export default async function BoutiquePage() {
   // so a QR code or NFC chip order can be tied to a specific point of sale
   // (see PlaqueComponentsOrderForm).
   const supabase = await createServerSupabaseClient();
-  const { data: pointsOfSale } = await supabase
-    .from("merchant_qr_codes")
-    .select("id, label, city")
-    .eq("merchant_id", merchant.merchantId)
-    .in("kind", ["main", "join_source"])
-    .order("created_at", { ascending: true });
+  const [{ data: pointsOfSale }, alreadyOwned, { data: plaqueSubscription }] = await Promise.all([
+    supabase
+      .from("merchant_qr_codes")
+      .select("id, label, city")
+      .eq("merchant_id", merchant.merchantId)
+      .in("kind", ["main", "join_source"])
+      .order("created_at", { ascending: true }),
+    getMerchantOwnedPlaqueCount(merchant.merchantId),
+    supabase
+      .from("merchant_plaque_subscriptions")
+      .select("status")
+      .eq("merchant_id", merchant.merchantId)
+      .maybeSingle(),
+  ]);
+  const hasActivePlaqueSubscription = plaqueSubscription?.status === "active";
 
   return (
     <div className="space-y-12">
@@ -42,7 +52,7 @@ export default async function BoutiquePage() {
               Plaque NFC + QR code à poser en caisse pour récolter plus d&apos;avis Google 5 étoiles.
               Tarif dégressif selon la quantité commandée.
             </p>
-            <NfcCardOrderForm />
+            <NfcCardOrderForm alreadyOwned={alreadyOwned} hasActivePlaqueSubscription={hasActivePlaqueSubscription} />
 
             <div className="mt-8 border-t border-gray-100 pt-8">
               <PlaqueComponentsOrderForm pointsOfSale={pointsOfSale ?? []} />

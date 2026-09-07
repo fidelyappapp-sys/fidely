@@ -24,6 +24,10 @@ export const isWebPushConfigured = Boolean(
 
 export const isEmailConfigured = Boolean(process.env.RESEND_API_KEY);
 
+// Pro-tier automatic menu translation (DeepL). Degrades to French-only
+// (no language switcher shown) when unset — see lib/i18n/translateMenu.ts.
+export const isTranslationConfigured = Boolean(process.env.DEEPL_API_KEY);
+
 export function appBaseUrl() {
   return process.env.APP_BASE_URL ?? "http://localhost:3000";
 }

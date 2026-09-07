@@ -106,6 +106,38 @@ export const menuItemSchema = z.object({
   priceCents: z.coerce.number().int().min(0).max(1_000_000).optional(),
 });
 
+// Single-submit payload for the Hub editor (see lib/actions/hub.ts) — one
+// "Publier" click stages every section (tabs, menu, hours, contact, social)
+// into one atomic-from-the-user's-perspective save, which is what makes "one
+// modification = one click" well-defined regardless of how many fields changed.
+export const hubTabKeySchema = z.enum(["menu", "avis", "social", "contact"]);
+
+export const publishHubConfigSchema = z.object({
+  enabledTabs: z.array(hubTabKeySchema).max(4),
+  googleReviewLink: z.string().trim().max(500).optional().or(z.literal("")),
+  phone: z.string().trim().max(30).optional().or(z.literal("")),
+  openingHours: openingHoursSchema,
+  menuItems: z
+    .array(
+      z.object({
+        id: z.string().uuid().optional(),
+        name: z.string().trim().min(1).max(120),
+        description: z.string().trim().max(300).optional().or(z.literal("")),
+        priceCents: z.number().int().min(0).max(1_000_000).nullable().optional(),
+      })
+    )
+    .max(100),
+  socialLinks: z
+    .array(
+      z.object({
+        id: z.string().uuid().optional(),
+        platform: z.enum(["instagram", "facebook", "tiktok", "website", "other"]),
+        url: z.string().trim().url(),
+      })
+    )
+    .max(20),
+});
+
 const sectorValues = [
   "restaurant",
   "food_truck",
@@ -214,24 +246,36 @@ export const kitDeliverySchema = z.discriminatedUnion("method", [
   z.object({ method: z.literal("postal_shipping"), ...shippingAddressFields }),
 ]);
 
+const plaqueTierField = z.enum(["avis", "presence", "pro"]);
+const plaqueBillingIntervalField = z.enum(["month", "year"]).optional();
+
 export const nfcCardCheckoutSchema = z.discriminatedUnion("deliveryMethod", [
   z.object({
     deliveryMethod: z.literal("hand_delivery"),
-    quantity: z.number().int().min(1).max(20),
+    tier: plaqueTierField,
+    billingInterval: plaqueBillingIntervalField,
+    quantity: z.number().int().min(1).max(100),
   }),
   z.object({
     deliveryMethod: z.literal("postal_shipping"),
-    quantity: z.number().int().min(1).max(20),
+    tier: plaqueTierField,
+    billingInterval: plaqueBillingIntervalField,
+    quantity: z.number().int().min(1).max(100),
     ...shippingAddressFields,
   }),
 ]);
 
-// Public, unauthenticated purchase (see app/api/public/nfc-checkout) — always
-// shipped (no "hand delivery" concept without an existing merchant
-// relationship), and no address fields: Stripe Checkout's own
-// shipping_address_collection gathers that instead.
+// Public, unauthenticated purchase (see app/api/public/nfc-checkout) — Avis
+// tier only (Présence/Pro require an account), always shipped (no "hand
+// delivery" concept without an existing merchant relationship), no postal
+// address fields (Stripe Checkout's own shipping_address_collection gathers
+// that instead). buyerEmail is required — needed to compute the lifetime
+// cumulative discount before the Checkout Session is created, and to send
+// the edit-link email after payment.
 export const publicNfcCheckoutSchema = z.object({
-  quantity: z.number().int().min(1).max(20),
+  quantity: z.number().int().min(1).max(100),
+  buyerEmail: z.string().email(),
+  googleReviewLink: z.string().url(),
 });
 
 // Components/pack for the Plaque avis Google (see PLAQUE_COMPONENTS /

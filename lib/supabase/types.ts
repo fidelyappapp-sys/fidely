@@ -103,6 +103,7 @@ export interface Database {
           phone: string | null;
           address: string | null;
           google_review_link: string | null;
+          google_place_id: string | null;
           opening_hours: OpeningHours;
           kit_delivery_method: KitDeliveryMethod | null;
           kit_shipping_address: KitShippingAddress | null;
@@ -618,6 +619,8 @@ export interface Database {
           label: string | null;
           shop_order_id: string | null;
           public_shop_order_id: string | null;
+          redirect_url: string | null;
+          loyalty_enabled: boolean;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["plaques"]["Row"]> & {

@@ -6,6 +6,7 @@ import { MobileNav } from "@/components/MobileNav";
 const navItems = [
   { href: "/admin", label: "Vue d'ensemble" },
   { href: "/admin/merchants", label: "Commerçants" },
+  { href: "/admin/plaques", label: "Cartes /j" },
   { href: "/admin/invoices", label: "Factures" },
   { href: "/admin/kits", label: "Kits en attente" },
   { href: "/admin/orders", label: "Commandes boutique" },

@@ -65,6 +65,18 @@ export type PlaqueTier = "avis" | "presence" | "pro";
 export type HubTabKey = "menu" | "avis" | "social" | "contact";
 export type SocialPlatform = "instagram" | "facebook" | "tiktok" | "website" | "other";
 
+// Tabs for a *standalone* presence/pro plaque (merchant_id is null — no
+// merchant account, admin-filled via app/admin/(protected)/plaques instead
+// of merchant_hub_config/merchant_menu_items). "fidelite" only makes sense
+// alongside plaques.loyalty_enabled, but nothing here enforces that pairing.
+export type StandalonePlaqueTabKey = "accueil" | "avis" | "menu" | "offres" | "fidelite";
+
+export interface PlaqueMenuConfig {
+  enabledTabs: StandalonePlaqueTabKey[];
+  menuItems?: { name: string; description?: string | null; priceCents?: number | null }[];
+  offers?: string[];
+}
+
 export interface ShopOrderItem {
   key: "display_stand" | "sheet" | "qr" | "full_kit" | "new_shop_kit" | "nfc_card" | "nfc_loyalty_card" | "nfc_chip";
   label: string;
@@ -613,7 +625,7 @@ export interface Database {
         Row: {
           id: string;
           short_code: string;
-          tier: PlaqueTier;
+          tier: PlaqueTier | null;
           merchant_id: string | null;
           avis_link_id: string | null;
           label: string | null;
@@ -621,6 +633,10 @@ export interface Database {
           public_shop_order_id: string | null;
           redirect_url: string | null;
           loyalty_enabled: boolean;
+          merchant_name: string | null;
+          merchant_address: string | null;
+          google_place_id: string | null;
+          menu_config: PlaqueMenuConfig | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["plaques"]["Row"]> & {

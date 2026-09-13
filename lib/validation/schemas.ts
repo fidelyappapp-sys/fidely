@@ -315,3 +315,36 @@ export const addMerchantSchema = z.object({
   address: z.string().trim().min(2).max(300),
   businessType: z.string().trim().min(2).max(80),
 });
+
+// Assigns a standalone /j/{code} plaque (app/admin/(protected)/plaques) —
+// merchant_name/address/google_place_id/menu_config live directly on
+// plaques since there's no merchant account behind these, see
+// supabase/migrations/0034_j_code_import.sql.
+const plaqueCommonFields = {
+  merchantName: z.string().trim().min(1).max(120),
+  merchantAddress: z.string().trim().max(300).optional().or(z.literal("")),
+  googlePlaceId: z.string().trim().max(200).optional().or(z.literal("")),
+};
+
+export const assignPlaqueSchema = z.discriminatedUnion("tier", [
+  z.object({
+    tier: z.literal("avis"),
+    ...plaqueCommonFields,
+    redirectUrl: z.string().trim().url("URL de redirection invalide"),
+  }),
+  z.object({
+    tier: z.literal("presence"),
+    ...plaqueCommonFields,
+    enabledTabs: z
+      .array(z.enum(["accueil", "avis", "menu", "offres", "fidelite"]))
+      .min(1, "Sélectionnez au moins un onglet"),
+  }),
+  z.object({
+    tier: z.literal("pro"),
+    ...plaqueCommonFields,
+    enabledTabs: z
+      .array(z.enum(["accueil", "avis", "menu", "offres", "fidelite"]))
+      .min(1, "Sélectionnez au moins un onglet"),
+    loyaltyEnabled: z.boolean().optional(),
+  }),
+]);

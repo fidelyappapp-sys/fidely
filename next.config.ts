@@ -2,6 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  async rewrites() {
+    return [
+      // The 100 pre-printed batch cards (QR/NFC already manufactured) encode
+      // /j/{code} — rewritten (not redirected, so the URL bar keeps /j/...)
+      // to the same plaque page as the self-service /p/{code} flow.
+      { source: "/j/:code", destination: "/p/:code" },
+    ];
+  },
   async headers() {
     return [
       {

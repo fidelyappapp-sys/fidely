@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { assignPlaqueCode, type AssignPlaqueActionState } from "@/lib/actions/adminPlaques";
 import { buildGoogleReviewUrl } from "@/lib/googleReview";
-import type { PlaqueTier, StandalonePlaqueTabKey } from "@/lib/supabase/types";
+import type { PlaqueLinkType, PlaqueTier, StandalonePlaqueTabKey } from "@/lib/supabase/types";
 
 const initialState: AssignPlaqueActionState = {};
 
@@ -13,6 +13,32 @@ const TAB_OPTIONS: { key: StandalonePlaqueTabKey; label: string }[] = [
   { key: "menu", label: "Menu" },
   { key: "offres", label: "Offres" },
 ];
+
+const LINK_TYPE_OPTIONS: { key: PlaqueLinkType; label: string }[] = [
+  { key: "google_review", label: "Avis Google" },
+  { key: "tripadvisor", label: "TripAdvisor" },
+  { key: "social", label: "Réseaux sociaux" },
+  { key: "menu", label: "Menu / catalogue" },
+  { key: "vcard", label: "Fiche contact (vCard)" },
+  { key: "website", label: "Site web" },
+  { key: "whatsapp", label: "WhatsApp" },
+  { key: "reservation", label: "Réservation" },
+  { key: "linktree", label: "Page de liens multiples" },
+  { key: "loyalty", label: "Programme de fidélité / coupon" },
+  { key: "other", label: "Autre" },
+];
+
+const LINK_TYPE_URL_LABELS: Partial<Record<PlaqueLinkType, string>> = {
+  tripadvisor: "Lien TripAdvisor",
+  social: "Lien réseau social",
+  menu: "Lien du menu / catalogue",
+  website: "URL du site",
+  whatsapp: "Lien WhatsApp (https://wa.me/...)",
+  reservation: "Lien de réservation",
+  linktree: "Lien de la page",
+  loyalty: "Lien du programme / coupon",
+  other: "URL",
+};
 
 export function PlaqueAssignForm({
   code,
@@ -24,7 +50,11 @@ export function PlaqueAssignForm({
     merchantName: string | null;
     merchantAddress: string | null;
     googlePlaceId: string | null;
+    linkType: PlaqueLinkType | null;
     redirectUrl: string | null;
+    vcardName: string | null;
+    vcardPhone: string | null;
+    vcardAddress: string | null;
     enabledTabs: StandalonePlaqueTabKey[] | null;
     loyaltyEnabled: boolean;
   };
@@ -34,6 +64,7 @@ export function PlaqueAssignForm({
   const [tier, setTier] = useState<PlaqueTier | "">(initial.tier ?? "");
   const [placeId, setPlaceId] = useState(initial.googlePlaceId ?? "");
   const [redirectUrl, setRedirectUrl] = useState(initial.redirectUrl ?? "");
+  const [linkType, setLinkType] = useState<PlaqueLinkType | "">(initial.linkType ?? "");
 
   return (
     <form action={formAction} className="max-w-lg space-y-5">
@@ -87,26 +118,82 @@ export function PlaqueAssignForm({
       </div>
 
       {tier === "avis" && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700">URL de redirection</label>
-          <input
-            name="redirectUrl"
-            required
-            value={redirectUrl}
-            onChange={(e) => setRedirectUrl(e.target.value)}
-            placeholder="https://..."
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-          {placeId && (
-            <button
-              type="button"
-              onClick={() => setRedirectUrl(buildGoogleReviewUrl(placeId))}
-              className="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-500"
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Destination de la plaque</label>
+            <select
+              name="linkType"
+              required
+              value={linkType}
+              onChange={(e) => setLinkType(e.target.value as PlaqueLinkType)}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
-              Utiliser le lien d&apos;avis Google calculé
-            </button>
+              <option value="" disabled>
+                Choisir...
+              </option>
+              {LINK_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">Un seul choix actif à la fois — le changer remplace la destination précédente.</p>
+          </div>
+
+          {linkType === "google_review" && (
+            <p className="text-sm text-gray-600">
+              {placeId
+                ? `Redirige vers ${buildGoogleReviewUrl(placeId)}`
+                : "Renseignez le Google Place ID ci-dessus pour calculer le lien."}
+            </p>
           )}
-        </div>
+
+          {linkType === "vcard" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Nom (fiche contact)</label>
+                <input
+                  name="vcardName"
+                  required
+                  defaultValue={initial.vcardName ?? ""}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Téléphone</label>
+                <input
+                  name="vcardPhone"
+                  defaultValue={initial.vcardPhone ?? ""}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Adresse (fiche contact)</label>
+                <input
+                  name="vcardAddress"
+                  defaultValue={initial.vcardAddress ?? ""}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+          )}
+
+          {linkType !== "" && linkType !== "google_review" && linkType !== "vcard" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                {LINK_TYPE_URL_LABELS[linkType as PlaqueLinkType] ?? "URL"}
+              </label>
+              <input
+                name="redirectUrl"
+                required
+                value={redirectUrl}
+                onChange={(e) => setRedirectUrl(e.target.value)}
+                placeholder="https://..."
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+          )}
+        </>
       )}
 
       {(tier === "presence" || tier === "pro") && (

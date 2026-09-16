@@ -326,12 +326,32 @@ const plaqueCommonFields = {
   googlePlaceId: z.string().trim().max(200).optional().or(z.literal("")),
 };
 
-export const assignPlaqueSchema = z.discriminatedUnion("tier", [
-  z.object({
-    tier: z.literal("avis"),
-    ...plaqueCommonFields,
-    redirectUrl: z.string().trim().url("URL de redirection invalide"),
-  }),
+const plaqueLinkTypes = [
+  "google_review",
+  "tripadvisor",
+  "social",
+  "menu",
+  "vcard",
+  "website",
+  "whatsapp",
+  "reservation",
+  "linktree",
+  "loyalty",
+  "other",
+] as const;
+
+const avisPlaqueSchema = z.object({
+  tier: z.literal("avis"),
+  ...plaqueCommonFields,
+  linkType: z.enum(plaqueLinkTypes),
+  redirectUrl: z.string().trim().url("URL de redirection invalide").optional().or(z.literal("")),
+  vcardName: z.string().trim().max(120).optional().or(z.literal("")),
+  vcardPhone: z.string().trim().max(40).optional().or(z.literal("")),
+  vcardAddress: z.string().trim().max(300).optional().or(z.literal("")),
+});
+
+const assignPlaqueUnion = z.discriminatedUnion("tier", [
+  avisPlaqueSchema,
   z.object({
     tier: z.literal("presence"),
     ...plaqueCommonFields,
@@ -348,3 +368,22 @@ export const assignPlaqueSchema = z.discriminatedUnion("tier", [
     loyaltyEnabled: z.boolean().optional(),
   }),
 ]);
+
+// Which fields are required on the "avis" branch depends on linkType —
+// google_review is computed from googlePlaceId, vcard from the vcard*
+// fields, everything else needs redirectUrl — hence a refine pass after
+// the union rather than baking it into avisPlaqueSchema (discriminatedUnion
+// members must stay plain objects, not ZodEffects).
+export const assignPlaqueSchema = assignPlaqueUnion.superRefine((data, ctx) => {
+  if (data.tier !== "avis") return;
+  if (data.linkType === "vcard") {
+    if (!data.vcardName) {
+      ctx.addIssue({ code: "custom", path: ["vcardName"], message: "Nom requis pour la fiche contact." });
+    }
+    return;
+  }
+  if (data.linkType === "google_review") return;
+  if (!data.redirectUrl) {
+    ctx.addIssue({ code: "custom", path: ["redirectUrl"], message: "URL de redirection requise." });
+  }
+});

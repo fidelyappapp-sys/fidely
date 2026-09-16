@@ -28,7 +28,7 @@ export default async function PlaquePage({ params }: { params: Promise<{ code: s
   const { data: plaque } = await db
     .from("plaques")
     .select(
-      "tier, merchant_id, avis_link_id, redirect_url, loyalty_enabled, merchant_name, merchant_address, google_place_id, menu_config, merchants(google_review_link), avis_links(google_review_link)"
+      "tier, merchant_id, avis_link_id, link_type, redirect_url, loyalty_enabled, merchant_name, merchant_address, google_place_id, menu_config, merchants(google_review_link), avis_links(google_review_link)"
     )
     .eq("short_code", code)
     .maybeSingle();
@@ -44,7 +44,14 @@ export default async function PlaquePage({ params }: { params: Promise<{ code: s
   }
 
   if (plaque.tier === "avis") {
+    if (plaque.link_type === "vcard") {
+      redirect(`/api/vcard/${code}`);
+    }
+
     const link =
+      (plaque.link_type === "google_review" && plaque.google_place_id
+        ? buildGoogleReviewUrl(plaque.google_place_id)
+        : null) ??
       plaque.redirect_url ??
       (plaque.merchants as unknown as { google_review_link: string | null } | null)?.google_review_link ??
       (plaque.avis_links as unknown as { google_review_link: string | null } | null)?.google_review_link ??

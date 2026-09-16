@@ -65,6 +65,28 @@ export type PlaqueTier = "avis" | "presence" | "pro";
 export type HubTabKey = "menu" | "avis" | "social" | "contact";
 export type SocialPlatform = "instagram" | "facebook" | "tiktok" | "website" | "other";
 
+// What an Avis-tier plaque's single destination is — see
+// supabase/migrations/0035_plaque_link_type.sql for how each type resolves.
+export type PlaqueLinkType =
+  | "google_review"
+  | "tripadvisor"
+  | "social"
+  | "menu"
+  | "vcard"
+  | "website"
+  | "whatsapp"
+  | "reservation"
+  | "linktree"
+  | "loyalty"
+  | "other";
+
+export interface PlaqueVCardData {
+  name: string;
+  phone?: string;
+  address?: string;
+  org?: string;
+}
+
 // Tabs for a *standalone* presence/pro plaque (merchant_id is null — no
 // merchant account, admin-filled via app/admin/(protected)/plaques instead
 // of merchant_hub_config/merchant_menu_items). "fidelite" only makes sense
@@ -637,6 +659,8 @@ export interface Database {
           merchant_address: string | null;
           google_place_id: string | null;
           menu_config: PlaqueMenuConfig | null;
+          link_type: PlaqueLinkType | null;
+          vcard_data: PlaqueVCardData | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["plaques"]["Row"]> & {

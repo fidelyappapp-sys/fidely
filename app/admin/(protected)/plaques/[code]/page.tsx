@@ -9,7 +9,9 @@ export default async function AdminPlaqueDetailPage({ params }: { params: Promis
 
   const { data: plaque } = await db
     .from("plaques")
-    .select("short_code, tier, merchant_id, merchant_name, merchant_address, google_place_id, redirect_url, loyalty_enabled, menu_config")
+    .select(
+      "short_code, tier, merchant_id, merchant_name, merchant_address, google_place_id, link_type, redirect_url, vcard_data, loyalty_enabled, menu_config"
+    )
     .eq("short_code", code)
     .maybeSingle();
 
@@ -52,7 +54,11 @@ export default async function AdminPlaqueDetailPage({ params }: { params: Promis
             merchantName: plaque.merchant_name,
             merchantAddress: plaque.merchant_address,
             googlePlaceId: plaque.google_place_id,
+            linkType: plaque.link_type,
             redirectUrl: plaque.redirect_url,
+            vcardName: plaque.vcard_data?.name ?? null,
+            vcardPhone: plaque.vcard_data?.phone ?? null,
+            vcardAddress: plaque.vcard_data?.address ?? null,
             enabledTabs: plaque.menu_config?.enabledTabs ?? null,
             loyaltyEnabled: plaque.loyalty_enabled,
           }}

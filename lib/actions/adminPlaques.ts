@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdminContext } from "@/lib/adminAuth";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { assignPlaqueSchema } from "@/lib/validation/schemas";
-import type { PlaqueMenuConfig, StandalonePlaqueTabKey } from "@/lib/supabase/types";
+import type { PlaqueMenuConfig, PlaqueVCardData, StandalonePlaqueTabKey } from "@/lib/supabase/types";
 
 export interface AssignPlaqueActionState {
   error?: string;
@@ -24,7 +24,11 @@ export async function assignPlaqueCode(
     merchantName: formData.get("merchantName"),
     merchantAddress: formData.get("merchantAddress"),
     googlePlaceId: formData.get("googlePlaceId"),
+    linkType: formData.get("linkType"),
     redirectUrl: formData.get("redirectUrl"),
+    vcardName: formData.get("vcardName"),
+    vcardPhone: formData.get("vcardPhone"),
+    vcardAddress: formData.get("vcardAddress"),
     enabledTabs: formData.getAll("enabledTabs") as StandalonePlaqueTabKey[],
     loyaltyEnabled: formData.get("loyaltyEnabled") === "on",
   });
@@ -38,6 +42,15 @@ export async function assignPlaqueCode(
   const menuConfig: PlaqueMenuConfig | null =
     parsed.data.tier === "avis" ? null : { enabledTabs: parsed.data.enabledTabs };
 
+  const vcardData: PlaqueVCardData | null =
+    parsed.data.tier === "avis" && parsed.data.linkType === "vcard"
+      ? {
+          name: parsed.data.vcardName!,
+          phone: parsed.data.vcardPhone || undefined,
+          address: parsed.data.vcardAddress || undefined,
+        }
+      : null;
+
   const { error, data } = await db
     .from("plaques")
     .update({
@@ -45,7 +58,9 @@ export async function assignPlaqueCode(
       merchant_name: parsed.data.merchantName,
       merchant_address: parsed.data.merchantAddress || null,
       google_place_id: parsed.data.googlePlaceId || null,
-      redirect_url: parsed.data.tier === "avis" ? parsed.data.redirectUrl : null,
+      link_type: parsed.data.tier === "avis" ? parsed.data.linkType : null,
+      redirect_url: parsed.data.tier === "avis" ? parsed.data.redirectUrl || null : null,
+      vcard_data: vcardData,
       loyalty_enabled: parsed.data.tier === "pro" ? (parsed.data.loyaltyEnabled ?? false) : false,
       menu_config: menuConfig,
     })

@@ -163,14 +163,42 @@ export async function upsertLoyaltyObject(params: {
   return id;
 }
 
-// Called after a scan awards points: patches the balance and appends a
-// message, which is what causes Google Wallet to notify the device.
-// loyaltyPoints.label and barcode are sent in full on every call (not just
-// balance/alternateText) — Wallet Objects PATCH semantics for nested
-// sub-objects aren't documented as a field-level merge, so relying on that
-// to "preserve" a previously-set label/barcode risked a stamps-mode card
-// silently reverting to "Points" (and a stale points count under the QR)
-// on the very next scan.
+// Appends a message via the dedicated addMessage endpoint with
+// messageType TEXT_AND_NOTIFY — this is what actually causes Google Wallet
+// to send a device push notification. A message embedded in a plain object
+// PATCH/PUT (the previous approach here) defaults to messageType TEXT: it
+// still shows up on the back of the pass, but silently — no banner, lock
+// screen, or notification-center entry, which was exactly the bug this
+// fixed. See https://developers.google.com/wallet/retail/loyalty-cards/use-cases/trigger-push-notifications.
+// Google caps this at 3 notifications per pass per 24h and requires the
+// user to have Wallet notifications enabled.
+async function addLoyaltyObjectMessage(
+  objectId: string,
+  header: string,
+  body: string,
+  id: string
+): Promise<void> {
+  const res = await walletRequest(`/loyaltyObject/${objectId}/addMessage`, {
+    method: "POST",
+    body: JSON.stringify({
+      message: { header, body, id, messageType: "TEXT_AND_NOTIFY" },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to add Google loyaltyObject message: ${await res.text()}`);
+  }
+}
+
+// Called after a scan awards points: patches the balance, then sends the
+// notifying message as a separate addMessage call (see
+// addLoyaltyObjectMessage above — a message can't ride along in this PATCH
+// and still trigger a notification). loyaltyPoints.label and barcode are
+// sent in full on every call (not just balance/alternateText) — Wallet
+// Objects PATCH semantics for nested sub-objects aren't documented as a
+// field-level merge, so relying on that to "preserve" a previously-set
+// label/barcode risked a stamps-mode card silently reverting to "Points"
+// (and a stale points count under the QR) on the very next scan.
 export async function patchLoyaltyObjectPoints(
   objectId: string,
   points: number,
@@ -184,39 +212,29 @@ export async function patchLoyaltyObjectPoints(
     body: JSON.stringify({
       loyaltyPoints: { label, balance: { int: points } },
       barcode: { type: "QR_CODE", value: qrValue, alternateText: `${points} ${label.toLowerCase()}` },
-      messages: [
-        {
-          header: message?.header ?? `${label} mis à jour`,
-          body: message?.body ?? `Vous avez maintenant ${points} ${label.toLowerCase()}.`,
-          id: `points-${points}-${Date.now()}`,
-        },
-      ],
     }),
   });
 
   if (!res.ok) {
     throw new Error(`Failed to patch Google loyaltyObject: ${await res.text()}`);
   }
+
+  await addLoyaltyObjectMessage(
+    objectId,
+    message?.header ?? `${label} mis à jour`,
+    message?.body ?? `Vous avez maintenant ${points} ${label.toLowerCase()}.`,
+    `points-${points}-${Date.now()}`
+  );
 }
 
 // Pushes a standalone message (birthday, review request, manual broadcast)
-// without touching the points balance. Wallet Objects PATCH only updates
-// the fields provided, so omitting loyaltyPoints leaves it untouched.
+// without touching the points balance.
 export async function pushLoyaltyObjectMessage(
   objectId: string,
   header: string,
   body: string
 ): Promise<void> {
-  const res = await walletRequest(`/loyaltyObject/${objectId}`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      messages: [{ header, body, id: `msg-${Date.now()}` }],
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to push Google loyaltyObject message: ${await res.text()}`);
-  }
+  await addLoyaltyObjectMessage(objectId, header, body, `msg-${Date.now()}`);
 }
 
 // Re-syncs the reward/objectif text and points label on an already-issued
